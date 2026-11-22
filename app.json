@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "f8a428f0-087b-48b5-8806-047cef5712d4"
+      }
+    },
+    "android": {
+      "package": "com.niladri_expo.landconnect"
+    },
+    "owner": "niladri_expo"
+  }
+}

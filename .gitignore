@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+build/
+.turbo/
+.expo/
+.expo-shared/
+*.tsbuildinfo
+
+# native
+android/
+ios/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# env & secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# logs & coverage
+*.log
+npm-debug.log*
+coverage/
+
+# misc
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# AI/skills tooling (not part of the app)
+.agents/
+skills-lock.json
+.claude/
