@@ -198,6 +198,7 @@ export const api = {
   },
   conversations: {
     list: () => request<ConversationDto[]>('/api/conversations'),
+    get: (id: string) => request<ConversationDto>(`/api/conversations/${id}`),
     create: (input: ConversationCreateInput) =>
       request<ConversationDto>('/api/conversations', { method: 'POST', body: input }),
     messages: (id: string) =>

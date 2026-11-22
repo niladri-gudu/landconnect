@@ -74,6 +74,8 @@ export function toMessageDto(message: Message): MessageDto {
     body: message.body,
     type: message.type,
     createdAt: message.createdAt.toISOString(),
+    deliveredAt: message.deliveredAt?.toISOString() ?? null,
+    readAt: message.readAt?.toISOString() ?? null,
   };
 }
 
@@ -87,7 +89,10 @@ type ConversationRow = Conversation & {
   messages: Message[];
 };
 
-export function toConversationDto(conversation: ConversationRow): ConversationDto {
+export function toConversationDto(
+  conversation: ConversationRow,
+  unreadCount = 0,
+): ConversationDto {
   const last = conversation.messages[0];
   return {
     id: conversation.id,
@@ -108,6 +113,7 @@ export function toConversationDto(conversation: ConversationRow): ConversationDt
         }
       : null,
     lastMessageAt: conversation.lastMessageAt.toISOString(),
+    unreadCount,
     createdAt: conversation.createdAt.toISOString(),
   };
 }

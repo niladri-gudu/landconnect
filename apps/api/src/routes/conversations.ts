@@ -31,12 +31,29 @@ async function assertMember(conversationId: string, userId: string) {
 }
 
 conversationsRouter.get('/', requireAuth, async (req, res) => {
+  const me = req.user!.id;
   const rows = await prisma.conversation.findMany({
-    where: { participants: { some: { userId: req.user!.id } } },
+    where: { participants: { some: { userId: me } } },
     orderBy: { lastMessageAt: 'desc' },
     include: conversationInclude,
   });
-  res.json(rows.map(toConversationDto));
+
+  const ids = rows.map((row) => row.id);
+  const counts =
+    ids.length === 0
+      ? []
+      : await prisma.message.groupBy({
+          by: ['conversationId'],
+          where: { conversationId: { in: ids }, senderId: { not: me }, readAt: null },
+          _count: { _all: true },
+        });
+  const unreadByConversation = new Map(
+    counts.map((row) => [row.conversationId, row._count._all]),
+  );
+
+  res.json(
+    rows.map((row) => toConversationDto(row, unreadByConversation.get(row.id) ?? 0)),
+  );
 });
 
 conversationsRouter.post('/', requireAuth, async (req, res) => {
@@ -81,13 +98,56 @@ conversationsRouter.post('/', requireAuth, async (req, res) => {
   res.status(201).json(toConversationDto(created));
 });
 
+conversationsRouter.get('/:id', requireAuth, async (req, res) => {
+  const conversationId = req.params.id as string;
+  const me = req.user!.id;
+  await assertMember(conversationId, me);
+
+  const row = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    include: conversationInclude,
+  });
+  if (!row) throw new AppError(404, 'Conversation not found');
+
+  const unreadCount = await prisma.message.count({
+    where: { conversationId, senderId: { not: me }, readAt: null },
+  });
+  res.json(toConversationDto(row, unreadCount));
+});
+
 conversationsRouter.get('/:id/messages', requireAuth, async (req, res) => {
-  await assertMember((req.params.id as string), req.user!.id);
+  const conversationId = req.params.id as string;
+  const me = req.user!.id;
+  await assertMember(conversationId, me);
+
   const messages = await prisma.message.findMany({
-    where: { conversationId: (req.params.id as string) },
+    where: { conversationId },
     orderBy: { createdAt: 'asc' },
     take: 200,
   });
+
+  // Fetching history counts as delivery for messages from the other side.
+  const pending = messages.filter(
+    (message) => message.senderId !== me && message.deliveredAt === null,
+  );
+  if (pending.length > 0) {
+    const at = new Date();
+    await prisma.message.updateMany({
+      where: { id: { in: pending.map((message) => message.id) } },
+      data: { deliveredAt: at },
+    });
+
+    const io = req.app.get('io') as Server | undefined;
+    const receipt = {
+      conversationId,
+      messageIds: pending.map((message) => message.id),
+      at: at.toISOString(),
+    };
+    for (const senderId of new Set(pending.map((message) => message.senderId))) {
+      io?.to(`user:${senderId}`).emit(SOCKET_EVENTS.messageDelivered, receipt);
+    }
+  }
+
   res.json(messages.map(toMessageDto));
 });
 

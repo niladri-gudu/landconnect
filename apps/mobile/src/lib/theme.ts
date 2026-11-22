@@ -20,6 +20,9 @@ export const colors = {
   warning: '#F4B400',
   white: '#FFFFFF',
   overlay: 'rgba(0,0,0,0.45)',
+  // WhatsApp-style message receipt ticks
+  tickRead: '#34B7F1',
+  tickMuted: '#8696A0',
 } as const;
 
 export const spacing = {

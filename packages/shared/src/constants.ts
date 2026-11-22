@@ -25,6 +25,9 @@ export const SOCKET_EVENTS = {
   conversationLeave: "conversation:leave",
   // messaging
   messageNew: "message:new",
+  messageDelivered: "message:delivered",
+  messageRead: "message:read",
+  conversationRead: "conversation:read",
   typingStart: "typing:start",
   typingStop: "typing:stop",
   // call lifecycle

@@ -61,6 +61,10 @@ export default function MessagesScreen() {
                     createdAt: message.createdAt,
                   },
                   lastMessageAt: message.createdAt,
+                  unreadCount:
+                    message.senderId === user?.id
+                      ? conversation.unreadCount
+                      : conversation.unreadCount + 1,
                 }
               : conversation,
           )
@@ -72,7 +76,7 @@ export default function MessagesScreen() {
     return () => {
       socket.off(SOCKET_EVENTS.messageNew, onMessage);
     };
-  }, [accessToken, queryClient]);
+  }, [accessToken, queryClient, user?.id]);
 
   if (conversations.isLoading) return <Loading />;
 
@@ -99,21 +103,46 @@ export default function MessagesScreen() {
         renderItem={({ item }) => {
           const others = otherParticipants(item, user?.id);
           const title = others.map((p) => p.name).join(', ') || 'Conversation';
+          const unread = item.unreadCount ?? 0;
           return (
             <Pressable
-              onPress={() => router.push(`/chat/${item.id}` as Href)}
+              onPress={() => {
+                queryClient.setQueryData<ConversationDto[]>(
+                  ['conversations'],
+                  (prev) =>
+                    prev?.map((conversation) =>
+                      conversation.id === item.id
+                        ? { ...conversation, unreadCount: 0 }
+                        : conversation,
+                    ),
+                );
+                router.push(`/chat/${item.id}` as Href);
+              }}
               style={({ pressed }) => [styles.row, pressed && { opacity: 0.85 }]}
             >
               <Avatar name={title} uri={others[0]?.avatarUrl ?? undefined} />
               <View style={styles.rowBody}>
-                <Text style={styles.name} numberOfLines={1}>
+                <Text
+                  style={[styles.name, unread > 0 && styles.nameUnread]}
+                  numberOfLines={1}
+                >
                   {title}
                 </Text>
-                <Text style={styles.preview} numberOfLines={1}>
+                <Text
+                  style={[styles.preview, unread > 0 && styles.previewUnread]}
+                  numberOfLines={1}
+                >
                   {item.listingTitle ? `Re: ${item.listingTitle}` : 'Direct message'}
                   {item.lastMessage ? ` · ${item.lastMessage.body}` : ''}
                 </Text>
               </View>
+              {unread > 0 ? (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadText}>
+                    {unread > 99 ? '99+' : unread}
+                  </Text>
+                </View>
+              ) : null}
             </Pressable>
           );
         }}
@@ -135,5 +164,17 @@ const styles = StyleSheet.create({
   },
   rowBody: { flex: 1, gap: 2 },
   name: { fontSize: 16, fontWeight: '600', color: colors.text },
+  nameUnread: { fontWeight: '800' },
   preview: { fontSize: 13, color: colors.textMuted },
+  previewUnread: { color: colors.text, fontWeight: '600' },
+  unreadBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadText: { color: colors.white, fontSize: 11, fontWeight: '800' },
 });

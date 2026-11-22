@@ -50,6 +50,16 @@ export interface MessageDto {
   body: string;
   type: MessageType;
   createdAt: string;
+  /** Set when the recipient's app has acknowledged receipt. */
+  deliveredAt: string | null;
+  /** Set when the recipient has opened the conversation. */
+  readAt: string | null;
+}
+
+export interface MessageReceiptDto {
+  conversationId: string;
+  messageIds: string[];
+  at: string;
 }
 
 export interface ConversationParticipantDto extends Pick<
@@ -64,6 +74,8 @@ export interface ConversationDto {
   participants: ConversationParticipantDto[];
   lastMessage: Pick<MessageDto, "id" | "body" | "createdAt" | "senderId"> | null;
   lastMessageAt: string;
+  /** Messages from the other participant that this user has not read. */
+  unreadCount: number;
   createdAt: string;
 }
 
