@@ -94,8 +94,8 @@ My Listings tab
   → Seller/Broker:
        QA: "+ List new land" → /listing/create (modal)
        form: title, description, price, area, address, city, state,
-             GPS or manual coordinates, image URLs
-       local Zod validation → POST /api/listings
+             GPS or manual coordinates, up to 4 photos
+       local Zod validation → POST /api/uploads → POST /api/listings
        → /listing/:id
        remove listing (destructive text) → DELETE → list refresh
 ```

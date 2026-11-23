@@ -221,7 +221,7 @@ All statuses owned by the caller, newest first, unpaginated.
   "country": "India",
   "latitude": 12.8639,
   "longitude": 77.7876,
-  "images": ["https://res.cloudinary.com/…/plot.jpg"],
+  "images": ["https://<branch>-storage.<region>.aws.neon.tech/uploads/listings/<userId>/<uuid>.jpg"],
   "status": "ACTIVE"
 }
 ```
@@ -255,7 +255,27 @@ Hard delete; conversations survive with `listingId = null`.
 
 ---
 
-## 5. Conversations — `/api/conversations`
+## 5. Uploads — `/api/uploads`
+
+### `POST /api/uploads` — Bearer, role `SELLER` or `BROKER`
+
+Multipart form with one to four `files` parts. JPEG, PNG or WebP only, ≤8 MB each.
+
+Uploads to the linked Neon Object Storage bucket (`uploads`) under
+`listings/<userId>/<uuid>.<ext>`. The bucket is `public_read`, so the returned URLs are permanent
+for this branch.
+
+**201**
+```json
+{ "urls": ["https://<branch>-storage.<region>.aws.neon.tech/uploads/listings/<userId>/<uuid>.jpg"] }
+```
+
+**400** no files · **401** · **403** buyer or wrong role · **413** file too large ·
+**415** unsupported type · **503** object storage not configured on the server.
+
+---
+
+## 6. Conversations — `/api/conversations`
 
 ### `GET /api/conversations` — Bearer
 
@@ -324,7 +344,7 @@ Cannot message yourself (400). Both listing and participant must exist (404).
 
 ---
 
-## 6. Calls — `/api/calls`
+## 7. Calls — `/api/calls`
 
 ### `POST /api/calls` — Bearer, conversation participant
 
@@ -396,7 +416,7 @@ Sets `ENDED` and `endedAt`, emits `call:ended`. Idempotent for already-`ENDED`/`
 
 ---
 
-## 7. Realtime events (summary)
+## 8. Realtime events (summary)
 
 Connection: `io(API_URL, { auth: { token: accessToken } })`.
 Full catalog: [REALTIME_MESSAGING.md](REALTIME_MESSAGING.md).
@@ -414,7 +434,7 @@ Full catalog: [REALTIME_MESSAGING.md](REALTIME_MESSAGING.md).
 
 ---
 
-## 8. Operational notes
+## 9. Operational notes
 
 - **CORS:** `CORS_ORIGIN` defaults to `*`; set a comma-separated allowlist for deployment.
 - **Body limit:** 2 MB JSON.

@@ -125,9 +125,9 @@
 |---|---|---|---|---|
 | P1-1 | Deploy API (Render/Fly/Railway) + Neon + LiveKit env | Delivery | 2 h | ⬜ |
 | P1-2 | Point preview APK at deployed HTTPS API | Delivery | 20 m | ⬜ |
-| P1-3 | MapLibre embedded map on listing detail | Maps | 3 h | ⬜ |
-| P1-4 | Tap-to-pick location on create | Maps | 1 h | ⬜ |
-| P1-5 | Image picker + Cloudinary upload | Listings | 2 h | ⬜ |
+| P1-3 | MapLibre embedded map on listing detail | Maps | 3 h | ✅ verified 2026-11-23 |
+| P1-4 | Tap-to-pick location on create | Maps | 1 h | ✅ verified 2026-11-23 |
+| P1-5 | Image picker + Neon Object Storage upload | Listings | 2 h | ✅ verified 2026-11-23 |
 | P1-6 | Listing edit screen using PATCH | Listings | 1.5 h | ⬜ |
 | P1-7 | Rate limiting on auth/messages/calls | Security | 1 h | ⬜ |
 | P1-8 | Add `MISSED` timeout (client or job) | Calling | 1 h | ⬜ |

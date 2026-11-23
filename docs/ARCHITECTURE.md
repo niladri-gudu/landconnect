@@ -33,7 +33,8 @@
 ```
 
 External services in the target build: Neon Postgres, LiveKit (Cloud or self-hosted),
-OpenFreeMap/OSM tiles, Cloudinary for image uploads, EAS for the Android build.
+OpenFreeMap/OSM tiles, Neon Object Storage (S3-compatible) for listing photos, EAS for the
+Android build.
 
 ## 2. Monorepo boundaries
 
@@ -214,7 +215,7 @@ EAS Build (cloud) ──▶ APK artifact ──▶ evaluator's Android device
 Neon Postgres ◀── Render/Fly/Railway API ─┘  (HTTPS + WSS)
                         │
                         ├── LiveKit Cloud (media)
-                        └── Cloudinary (uploads, planned)
+                        └── Neon Object Storage: uploads (public_read)
 ```
 
 The current dev topology is simpler: API on the developer machine, app on a phone over LAN,

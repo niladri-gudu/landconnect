@@ -101,7 +101,7 @@ My Listings → + List new land
   location box:
     latitude | longitude
     "Use my current location" (expo-location; balanced accuracy)
-  image URLs (comma separated)
+  photos (up to 4 picked; uploaded on publish)
   hint: title 5+, description 20+, numeric price/area
   Publish
 ```
@@ -126,16 +126,14 @@ Role is checked before ownership, so a buyer always gets 403 without leaking exi
 
 ## 7. Images
 
-**Current:** sellers paste comma-separated HTTPS URLs. This avoids building an upload pipeline
-under deadline pressure, but it is the weakest part of the listing flow.
+**Current (implemented 2026-11-23):** the create form uses `expo-image-picker` for up to four
+photos (JPEG/PNG/WebP, 8 MB each). On publish it calls `POST /api/uploads`; the API stores each
+file in the Neon Object Storage `uploads` bucket under `listings/<userId>/<uuid>.<ext>` and
+returns permanent `public_read` URLs, which are saved in `images`. Thumbnails appear in the form
+with per-photo remove actions.
 
-**Target (P1):**
-1. `expo-image-picker` → select up to 10 images.
-2. Client compresses/resizes (e.g. 1600 px max, JPEG 0.8).
-3. Upload to Cloudinary with an **unsigned** preset restricted to image types and a max size,
-   or via a small signed-upload endpoint.
-4. Store returned secure URLs in `images`.
-5. Show thumbnails with remove/reorder in the form.
+Uploads are rejected server-side by role (SELLER/BROKER only), MIME type and size. Client-side
+resize/reorder and deletion of replaced objects remain nice-to-haves.
 
 **Validation still required server-side:** URL parse, allowlist host if using a single
 provider, max 10, max length per URL. Never fetch remote URLs inside the API (SSRF).

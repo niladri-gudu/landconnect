@@ -114,7 +114,7 @@ Recommended for production:
 | `JWT_SECRET` | Long random string; deployed as a secret | Committed, logged, reused across environments |
 | `DATABASE_URL` / `DIRECT_URL` | Environment secret | Committed, screenshotted, sent in chat |
 | `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | Server secret; tokens minted server-side | Put in the mobile bundle |
-| Cloudinary API secret | Server secret (or unsigned preset with restrictions) | Hardcoded in the app |
+| `AWS_*` object-storage credentials | Server secret; uploads go through `POST /api/uploads` | Sent to the app or committed |
 | `EXPO_PUBLIC_*` | Public by definition | Use for secrets |
 
 Rules:
@@ -134,7 +134,7 @@ Rules:
 - [ ] Database backups and connection limits.
 - [ ] Dependency audit (`pnpm audit`) in CI.
 - [ ] LiveKit API secret restricted to token minting.
-- [ ] Cloudinary upload preset limited by type/size and signed.
+- [ ] Object-storage credentials server-side only; uploads restricted by role, MIME type and size.
 - [ ] Security headers verified (helmet defaults plus HSTS at the proxy).
 - [ ] Socket.IO origin allowlist.
 
@@ -153,7 +153,7 @@ Rules:
 
 ## 9. Incident response (prototype)
 
-1. Rotate `JWT_SECRET`, `DATABASE_URL` credentials, LiveKit keys and Cloudinary keys.
+1. Rotate `JWT_SECRET`, `DATABASE_URL` credentials, LiveKit keys and object-storage keys.
 2. Revoke all refresh tokens (`UPDATE "RefreshToken" SET "revokedAt" = now()`).
 3. Force sign-out in the app by clearing stored sessions.
 4. Inspect access logs for abuse (once logging exists).

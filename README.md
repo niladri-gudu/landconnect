@@ -5,11 +5,12 @@ plots, chat privately, and start audio/video calls **without exchanging phone nu
 
 Built as the LandConnect technical assignment (issued 2026-11-20, due **2026-11-25 23:59 IST**).
 
-> **Status as of 2026-11-22:** auth, role-gated listings, conversations, realtime messaging,
+> **Status as of 2026-11-23:** auth, role-gated listings, conversations, realtime messaging,
 > call signalling, LiveKit media wiring and the global incoming-call overlay are implemented.
-> A **development build plus `LIVEKIT_*` credentials** are still required to verify audio/video
-> on devices; maps are an OpenStreetMap deep link, images are pasted URLs, and the APK + demo
-> video are not built. See [TASK_TRACKER.md](docs/TASK_TRACKER.md).
+> An embedded **MapLibre + OpenFreeMap** map (no API key) is verified on the Android dev build,
+> and listing photos upload through **Neon Object Storage** (`POST /api/uploads`). LiveKit
+> audio/video verification and the APK + demo video are still pending. See
+> [TASK_TRACKER.md](docs/TASK_TRACKER.md).
 
 ---
 
@@ -56,8 +57,8 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 | Role-based access + permissions | ✅ | API guards; UI hides seller actions |
 | Community listing feed | ✅ | `(tabs)/index.tsx`, `GET /api/listings` |
 | Listing create + manage | 🟡 create/delete UI, API supports edit; no edit screen | `(tabs)/listings.tsx`, `listing/create.tsx` |
-| Image upload | 🟡 image URLs only | `listing/create.tsx` |
-| Maps + geotagging | 🟡 GPS capture + OSM deep link; no embedded map | `location` in create screen, `map-preview.tsx` |
+| Image upload | ✅ photo picker → Neon Object Storage (4 images, ≤8 MB) | `listing/create.tsx`, `POST /api/uploads` |
+| Maps + geotagging | 🟡 embedded MapLibre + OpenFreeMap, tap-to-place picker; verify on native build | `listing-map.tsx`, location section in `listing/create.tsx` |
 | In-app messaging | ✅ | `(tabs)/messages.tsx`, `chat/[conversationId].tsx` |
 | Meeting rooms | 🟡 conversations act as persistent rooms | Socket.IO conversation rooms |
 | **In-app audio/video calling** | 🟡 LiveKit RN media + track-backed controls; **device build + `LIVEKIT_*` pending** | `call/[callId].tsx`, `components/active-call.tsx`, `/api/calls` |
@@ -79,7 +80,8 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 | Realtime | Socket.IO (chat, typing, call lifecycle, WebRTC signalling relay) |
 | Database | PostgreSQL on **Neon** · Prisma ORM |
 | Calling | LiveKit server SDK for room tokens; Socket.IO P2P relay fallback |
-| Maps | OpenStreetMap deep links now; MapLibre RN + OpenFreeMap planned |
+| Storage | Neon Object Storage (S3-compatible, `public_read` bucket) · Files SDK |
+| Maps | MapLibre RN + free OpenFreeMap vector tiles (no API key); OSM link fallback |
 | Builds | EAS Build (preview APK / dev client) |
 | Monorepo | Turborepo · pnpm workspaces |
 
@@ -113,6 +115,9 @@ development build** because it loads native WebRTC.
    cp apps/api/.env.example apps/api/.env
    # fill DATABASE_URL, DIRECT_URL, JWT_SECRET
    ```
+   Photo uploads also need Neon Object Storage credentials. With the Neon CLI linked
+   (`neon deploy && neon env pull`), copy the `AWS_*` values into `apps/api/.env`.
+   See [ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md).
 3. **Install and prepare the database:**
    ```bash
    pnpm install
@@ -201,8 +206,8 @@ The authoritative checklist lives in [TASK_TRACKER.md](docs/TASK_TRACKER.md). To
 - [x] Attach real audio/video media in code (LiveKit RN — verify on a development build)
 - [x] Global incoming-call listener + ring screen
 - [x] Camera/microphone permissions in app config (dev build still required)
-- [ ] Embedded MapLibre map with location picker
-- [ ] Image upload (Cloudinary) instead of URL paste
+- [x] Embedded MapLibre map with location picker (verified on the Android dev build)
+- [x] Image upload via photo picker + Neon Object Storage
 - [ ] Deploy API and produce a preview APK
 - [ ] Record the demo video (calling flow first)
 - [ ] Finalise docs and AI usage summary, push the repository

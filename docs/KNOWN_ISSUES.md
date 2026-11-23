@@ -67,12 +67,19 @@ re-emits on every `connect`, with token refresh on auth failures and polling fal
 **Symptom:** Listing detail shows a card that opens OpenStreetMap in a browser.
 **Impact:** The "integrate map functionality" requirement is only partially demonstrated.
 **Fix:** MapLibre RN + OpenFreeMap in a dev build; keep the deep link as fallback.
+**Status:** Resolved 2026-11-23 — `components/listing-map.tsx` renders the embedded map and the
+create-screen picker; verified on the rebuilt Android development client (detail map at the
+listing pin, picker tap rewrites the coordinates). The schematic card remains the fallback when
+the native module is absent.
 
-### KI-05 — Images are pasted URLs
+### KI-05 — Images were pasted URLs
 **Severity:** P1 · **Area:** Listings
-**Symptom:** `expo-image-picker` is installed but unused; sellers paste comma-separated URLs.
-**Impact:** Poor real-world usability; the image-upload requirement is partial.
-**Fix:** Picker → compression → Cloudinary (or signed endpoint) → store URLs.
+**Symptom:** `expo-image-picker` was unused; sellers pasted comma-separated URLs.
+**Impact:** Poor real-world usability; the image-upload requirement was partial.
+**Fix:** Picker → `POST /api/uploads` → Neon Object Storage (Files SDK) → store public URLs.
+**Status:** Resolved 2026-11-23 — the create form uploads up to four JPEG/PNG/WebP photos
+(≤8 MB each) to the `uploads` bucket and saves the returned URLs in `listing.images`. Verified
+from the emulator (`POST /api/uploads` 201) and with direct API checks (415/403/413 guards).
 
 ### KI-06 — No listing edit screen
 **Severity:** P1 · **Area:** Listings
@@ -194,7 +201,7 @@ Feed cards use the first-letter placeholder. Add real image URLs to the seed for
 | KI-09 | Build/deploy | P0 | Open |
 | KI-26 | Socket rejoin | P1 | Resolved |
 | KI-04 | Embedded map | P1 | Open |
-| KI-05 | Image upload | P1 | Open |
+| KI-05 | Image upload | P1 | Resolved |
 | KI-06 | Edit listing | P1 | Open |
 | KI-07 | Tests/CI | P1 | Open |
 | KI-08 | Rate limiting | P1 | Open |

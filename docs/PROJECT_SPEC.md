@@ -59,7 +59,7 @@ All roles can browse, chat and call. Only sellers and brokers can create listing
 
 ### 4.3 Listing management
 - Sellers/brokers create listings with title, description, price, area, address, city, state,
-  country, latitude/longitude and image URLs.
+  country, latitude/longitude and photos (Neon Object Storage URLs).
 - Owners can update (API) and delete (UI + API) their own listings.
 - Ownership is re-checked server-side on every mutation.
 

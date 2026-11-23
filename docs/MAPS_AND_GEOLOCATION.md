@@ -1,8 +1,10 @@
 # Maps and Geolocation
 
-**Baseline:** 2026-11-21
-**Status:** coordinates are captured and stored; the detail screen opens OpenStreetMap. No
-embedded map or map picker yet.
+**Baseline:** 2026-11-21 · **Updated:** 2026-11-23
+**Status:** embedded MapLibre map is implemented and verified on the rebuilt Android development
+client: listing detail renders the pin on OpenFreeMap tiles, and tapping the create-screen map
+rewrites the latitude/longitude fields. The schematic OSM card remains the fallback when the
+native module is absent.
 **Related:** [PROPERTY_LISTINGS.md](PROPERTY_LISTINGS.md) · [SECURITY_AND_PRIVACY.md](SECURITY_AND_PRIVACY.md) · [TECH_STACK.md](TECH_STACK.md)
 
 ---
@@ -40,22 +42,29 @@ city, state and country accompany the coordinates.
   ```
 - Permission denial shows: "Location permission was denied — enter coordinates manually."
 
-### 2.3 Display — `apps/mobile/src/components/map-preview.tsx`
+### 2.3 Display — `apps/mobile/src/components/listing-map.tsx`
 
-A pressable card with a pin, address, coordinates and "Open in OpenStreetMap →". It opens:
+`ListingMap` renders a MapLibre `Map` (OpenFreeMap liberty style) with a house pin at the
+listing coordinates and a secondary "Open in OpenStreetMap" action. It resolves MapLibre lazily:
+when the native `MLRNMapViewModule` is missing (an older development client) it renders the
+schematic card from `map-preview.tsx`, so the app keeps working until the new build is installed.
+
+`LocationPicker` (same file) renders a tappable map in the create form. A tap reports the pressed
+`lngLat`, writes six-decimal degrees back to the form, and the camera flies to the new point;
+the GPS button still recenters it through the same state.
+
+The external link, kept as an escape hatch, opens:
 
 ```
 https://www.openstreetmap.org/?mlat=<lat>&mlon=<lng>#map=16/<lat>/<lng>
 ```
-
-This is zero-dependency and works in Expo Go, but it leaves the app and is not an embedded map.
 
 ### 2.4 Permissions
 
 `app.json` declares coarse and fine location for Android and an `expo-location` plugin message
 for iOS. Foreground-only access; no background tracking.
 
-## 3. Target: MapLibre + OpenFreeMap
+## 3. Chosen and implemented: MapLibre + OpenFreeMap
 
 **Choice:** `@maplibre/maplibre-react-native` with free OpenFreeMap vector tiles (no API key,
 no paid Google Maps).
@@ -79,8 +88,8 @@ cd apps/mobile
 npx expo install @maplibre/maplibre-react-native
 ```
 
-Add the config plugin if the package exposes one, or follow its Expo installation guide. Rebuild
-the development client:
+The package ships an Expo config plugin; `"@maplibre/maplibre-react-native"` is added to
+`app.json` → `plugins`. Rebuild the development client:
 
 ```bash
 eas build --profile development --platform android
@@ -89,22 +98,21 @@ eas build --profile development --platform android
 ### 4.2 Map component
 
 ```tsx
-// components/listing-map.tsx
-import { Camera, MapView, PointAnnotation } from '@maplibre/maplibre-react-native';
+// components/listing-map.tsx (v11 API: Map, not MapView; mapStyle, not styleURL)
+import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
-export function ListingMap({ lat, lng }: { lat: number; lng: number }) {
-  return (
-    <MapView style={{ flex: 1 }} styleURL={STYLE_URL}>
-      <Camera centerCoordinate={[lng, lat]} zoomLevel={14} animationMode="flyTo" />
-      <PointAnnotation id="plot" coordinate={[lng, lat]}>
-        <View style={pinStyle} />
-      </PointAnnotation>
-    </MapView>
-  );
-}
+<Map mapStyle={STYLE_URL} androidView="texture" style={{ flex: 1 }}>
+  <Camera initialViewState={{ center: [longitude, latitude], zoom: 14 }} />
+  <Marker id="listing" lngLat={[longitude, latitude]} anchor="bottom">
+    <Pin />
+  </Marker>
+</Map>;
 ```
+
+`androidView="texture"` is deliberate: the surface view does not clip reliably inside a
+`ScrollView` with rounded corners.
 
 Wrap it in a fixed-height card (220–260 px) on the listing detail screen. Keep the existing
 "Open in OpenStreetMap" action as a secondary escape hatch.
@@ -112,20 +120,26 @@ Wrap it in a fixed-height card (220–260 px) on the listing detail screen. Keep
 ### 4.3 Location picker (create screen)
 
 ```tsx
-<MapView
-  styleURL={STYLE_URL}
-  onPress={(feature) => {
-    const [lng, lat] = feature.geometry.coordinates as [number, number];
+<Map
+  mapStyle={STYLE_URL}
+  onPress={(event) => {
+    const [lng, lat] = event.nativeEvent.lngLat;
     setLatitude(lat.toFixed(6));
     setLongitude(lng.toFixed(6));
   }}
 >
-  <Camera centerCoordinate={[Number(longitude), Number(latitude)]} zoomLevel={13} />
-  <PointAnnotation id="picker" coordinate={[Number(longitude), Number(latitude)]}>
-    <View style={pinStyle} />
-  </PointAnnotation>
-</MapView>
+  <Camera
+    ref={cameraRef}
+    initialViewState={{ center: [Number(longitude), Number(latitude)], zoom: 13 }}
+  />
+  <Marker id="picker" lngLat={[Number(longitude), Number(latitude)]} anchor="bottom">
+    <Pin />
+  </Marker>
+</Map>
 ```
+
+Implemented as `LocationPicker` in `listing-map.tsx`; a `useEffect` calls
+`cameraRef.current?.flyTo(...)` whenever the coordinates change (tap or GPS).
 
 Add:
 - A "Search address" geocoder (Nominatim, respecting its usage policy) — optional.
