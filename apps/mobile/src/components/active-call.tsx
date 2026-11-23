@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CallKind } from '@landconnect/shared';
 
 import { colors, radius, spacing, type } from '@/lib/theme';
+import { Avatar } from './ui';
 
 /**
  * Rendered inside <LiveKitRoom>. Reads the live room state so the mute and
@@ -14,10 +15,16 @@ import { colors, radius, spacing, type } from '@/lib/theme';
  */
 export function ActiveCall({
   kind,
+  title,
+  role,
+  avatarUrl,
   onEnd,
   busy,
 }: {
   kind: CallKind;
+  title: string;
+  role: string;
+  avatarUrl: string | null;
   onEnd: () => void;
   busy: boolean;
 }) {
@@ -53,11 +60,26 @@ export function ActiveCall({
           <VideoTrack trackRef={remoteVideo} style={styles.remoteVideo} objectFit="cover" />
         ) : (
           <View style={styles.avatar}>
-            <Ionicons
-              name={kind === 'VIDEO' ? 'videocam-outline' : 'headset-outline'}
-              size={40}
-              color={colors.white}
-            />
+            <Avatar name={title} uri={avatarUrl} size={112} ring />
+          </View>
+        )}
+
+        {kind === 'VIDEO' ? (
+          <View style={styles.identityPill}>
+            <Avatar name={title} uri={avatarUrl} size={34} />
+            <View style={styles.identityText}>
+              <Text style={styles.identityName} numberOfLines={1}>
+                {title}
+              </Text>
+              <Text style={styles.identityRole} numberOfLines={1}>
+                {role}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.identity}>
+            <Text style={styles.identityName}>{title}</Text>
+            <Text style={styles.identityRole}>{role}</Text>
           </View>
         )}
 
@@ -114,7 +136,7 @@ export function ActiveCall({
         accessibilityRole="button"
         accessibilityLabel="End call"
       >
-        <Ionicons name="call" size={28} color={colors.white} />
+        <Ionicons name="call" size={28} color={colors.white} style={styles.hangup} />
       </Pressable>
     </View>
   );
@@ -146,14 +168,27 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     overflow: 'hidden',
   },
-  avatar: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  avatar: { alignItems: 'center', justifyContent: 'center' },
+  identity: { alignItems: 'center', gap: 2, marginTop: spacing.md },
+  identityPill: {
+    position: 'absolute',
+    top: spacing.md,
+    left: spacing.md,
+    maxWidth: '68%',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(5,14,10,0.62)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.14)',
+    zIndex: 2,
   },
+  identityText: { flexShrink: 1, gap: 1 },
+  identityName: { ...type.title, color: colors.white },
+  identityRole: { ...type.caption, fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   status: { ...type.caption, color: 'rgba(255,255,255,0.7)' },
   error: { ...type.caption, fontSize: 12, color: '#FFB4AB', textAlign: 'center' },
   controlRow: { flexDirection: 'row', gap: spacing.xl },
@@ -174,4 +209,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   reject: { backgroundColor: colors.danger },
+  hangup: { transform: [{ rotate: '135deg' }] },
 });

@@ -30,6 +30,7 @@ import {
 } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { ensureCallPermissions } from '@/lib/call-permissions';
 import {
   formatArea,
   formatListedShort,
@@ -78,6 +79,18 @@ export default function ListingDetailScreen() {
     setError(null);
     setBusy(kind ?? 'chat');
     try {
+      if (kind) {
+        const allowed = await ensureCallPermissions(kind);
+        if (!allowed) {
+          setError(
+            kind === 'VIDEO'
+              ? 'Microphone and camera access are required for video calls. Allow them in Settings, then try again.'
+              : 'Microphone access is required for calls. Allow it in Settings, then try again.',
+          );
+          return;
+        }
+      }
+
       const conversation = await api.conversations.create({
         listingId: item.id,
         participantId: item.ownerId,

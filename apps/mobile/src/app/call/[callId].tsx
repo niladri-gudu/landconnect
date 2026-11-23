@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LiveKitRoom } from '@livekit/react-native';
 import { useQuery } from '@tanstack/react-query';
+import * as Device from 'expo-device';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -18,6 +19,7 @@ import { ActiveCall } from '@/components/active-call';
 import { Avatar, Loading } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { ensureCallPermissions } from '@/lib/call-permissions';
 import { roleLabel } from '@/lib/format';
 import { getSocket, joinConversation, leaveConversation } from '@/lib/socket';
 import { colors, radius, spacing, type } from '@/lib/theme';
@@ -30,12 +32,14 @@ function Control({
   tone,
   onPress,
   disabled,
+  showLabel = true,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   tone: 'accept' | 'decline' | 'neutral';
   onPress: () => void;
   disabled?: boolean;
+  showLabel?: boolean;
 }) {
   const background =
     tone === 'accept'
@@ -56,8 +60,13 @@ function Control({
         disabled && { opacity: 0.5 },
       ]}
     >
-      <Ionicons name={icon} size={26} color={colors.white} />
-      <Text style={styles.controlLabel}>{label}</Text>
+      <Ionicons
+        name={icon}
+        size={26}
+        color={colors.white}
+        style={tone === 'decline' ? styles.hangup : undefined}
+      />
+      {showLabel ? <Text style={styles.controlLabel}>{label}</Text> : null}
     </Pressable>
   );
 }
@@ -70,6 +79,19 @@ export default function CallScreen() {
   const [media, setMedia] = useState<LivekitSession | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [permission, setPermission] = useState<'checking' | 'granted' | 'denied'>(
+    'checking',
+  );
+
+  // Ending from the UI and receiving the server's call:ended echo can race.
+  // Leave the screen at most once, and never issue an unhandled GO_BACK.
+  const closingRef = useRef(false);
+  const closeCallScreen = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  }, [router]);
 
   const call = useQuery({
     queryKey: ['call', callId],
@@ -83,19 +105,53 @@ export default function CallScreen() {
 
   const conversationId: string | undefined = call.data?.conversationId;
   const isInitiator = call.data?.initiatorId === user?.id;
-
-  const conversation = useQuery({
-    queryKey: ['conversation', conversationId],
-    queryFn: () => api.conversations.get(conversationId as string),
-    enabled: Boolean(conversationId),
-  });
-  const other = conversation.data?.participants.find((participant) => participant.id !== user?.id);
+  const other = call.data
+    ? call.data.initiator.id === user?.id
+      ? call.data.receiver
+      : call.data.initiator
+    : null;
   const title = other?.name ?? 'LandConnect member';
+  const role = other ? roleLabel(other.role) : '';
+
+  // Ask before joining: Android otherwise joins with a muted microphone and
+  // no camera track, which looks like a broken call to both participants.
+  useEffect(() => {
+    if (!call.data) return;
+    let cancelled = false;
+
+    void ensureCallPermissions(call.data.kind).then((granted) => {
+      if (cancelled) return;
+      setPermission(granted ? 'granted' : 'denied');
+      if (!granted) {
+        setError(
+          'Microphone access is required to hear and be heard. Allow it in Settings, then try again.',
+        );
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [call.data]);
+
+  async function retryPermissions() {
+    if (!call.data) return;
+    const granted = await ensureCallPermissions(call.data.kind);
+    setPermission(granted ? 'granted' : 'denied');
+    if (granted) setError(null);
+  }
 
   // The callee receives credentials in the answer response; the caller (and
   // any screen opened after acceptance) fetches its own room token.
   useEffect(() => {
-    if (status !== 'ACTIVE' || media || !callId) return;
+    if (
+      status !== 'ACTIVE' ||
+      media ||
+      !callId ||
+      permission !== 'granted'
+    ) {
+      return;
+    }
     let cancelled = false;
 
     void (async () => {
@@ -112,7 +168,22 @@ export default function CallScreen() {
     return () => {
       cancelled = true;
     };
-  }, [status, media, callId]);
+  }, [status, media, callId, permission]);
+
+  // Abandon a call that is never answered, so the receiver's ring cannot stay
+  // stuck after the caller gives up. The server records it as ended.
+  useEffect(() => {
+    if (status !== 'RINGING' || !isInitiator || !callId) return;
+
+    const timer = setTimeout(() => {
+      void api.calls.end(callId).catch(() => undefined);
+      setStatus('ENDED');
+      setError('No answer');
+      setTimeout(closeCallScreen, 1_200);
+    }, 45_000);
+
+    return () => clearTimeout(timer);
+  }, [status, isInitiator, callId, closeCallScreen]);
 
   useEffect(() => {
     if (!accessToken || !conversationId) return;
@@ -124,11 +195,11 @@ export default function CallScreen() {
     const onAccepted = () => setStatus('ACTIVE');
     const onRejected = () => {
       setStatus('REJECTED');
-      router.back();
+      closeCallScreen();
     };
     const onEnded = () => {
       setStatus('ENDED');
-      router.back();
+      closeCallScreen();
     };
 
     socket.on(SOCKET_EVENTS.callAccepted, onAccepted);
@@ -141,15 +212,26 @@ export default function CallScreen() {
       socket.off(SOCKET_EVENTS.callEnded, onEnded);
       leaveConversation(conversationId);
     };
-  }, [accessToken, conversationId, router]);
+  }, [accessToken, conversationId, closeCallScreen]);
 
   async function answer(accept: boolean) {
+    if (accept) {
+      const granted = await ensureCallPermissions(call.data?.kind ?? 'AUDIO');
+      setPermission(granted ? 'granted' : 'denied');
+      if (!granted) {
+        setError(
+          'Microphone access is required to take this call. Allow it in Settings, then try again.',
+        );
+        return;
+      }
+    }
+
     setBusy(true);
     setError(null);
     try {
       const result = await api.calls.answer(callId, accept);
       if (!accept) {
-        router.back();
+        closeCallScreen();
         return;
       }
       setStatus('ACTIVE');
@@ -165,9 +247,9 @@ export default function CallScreen() {
     setBusy(true);
     try {
       await api.calls.end(callId);
-      router.back();
+      closeCallScreen();
     } catch {
-      router.back();
+      closeCallScreen();
     } finally {
       setBusy(false);
     }
@@ -179,6 +261,16 @@ export default function CallScreen() {
   const ringing = status === 'RINGING';
   const active = status === 'ACTIVE';
   const kindLabel = data.kind === 'VIDEO' ? 'Video call' : 'Audio call';
+  // The emulator renders and encodes the virtual camera in software; capturing
+  // at 720p/30 there is what makes the demo look laggy. Real phones keep the
+  // SDK defaults.
+  const videoCapture =
+    data.kind === 'VIDEO'
+      ? Device.isDevice
+        ? true
+        : { resolution: { width: 640, height: 480, frameRate: 24 } }
+      : false;
+
   const statusLabel = ringing
     ? isInitiator
       ? 'Calling…'
@@ -186,7 +278,9 @@ export default function CallScreen() {
     : active
       ? media
         ? 'Connected'
-        : 'Connecting media…'
+        : permission === 'denied'
+          ? 'Permission required'
+          : 'Connecting media…'
       : status?.toLowerCase() ?? '';
 
   return (
@@ -200,11 +294,19 @@ export default function CallScreen() {
             token={media.token}
             connect
             audio
-            video={data.kind === 'VIDEO'}
+            video={videoCapture}
+            options={{ adaptiveStream: true, dynacast: true }}
             onError={(roomError) => setError(roomError.message)}
             onDisconnected={() => setStatus('ENDED')}
           >
-            <ActiveCall kind={data.kind} onEnd={endCall} busy={busy} />
+            <ActiveCall
+              kind={data.kind}
+              title={title}
+              role={role}
+              avatarUrl={other?.avatarUrl ?? null}
+              onEnd={endCall}
+              busy={busy}
+            />
           </LiveKitRoom>
         </View>
       ) : (
@@ -219,9 +321,7 @@ export default function CallScreen() {
           <View style={styles.stage}>
             <Avatar name={title} uri={other?.avatarUrl} size={104} ring />
             <Text style={styles.name}>{title}</Text>
-            <Text style={styles.role}>
-              {other ? `${roleLabel(other.role)} · ` : ''}LandConnect
-            </Text>
+            <Text style={styles.role}>{role ? `${role} · ` : ''}LandConnect</Text>
             <View style={styles.lockRow}>
               <Ionicons name="lock-closed-outline" size={14} color="rgba(255,255,255,0.6)" />
               <Text style={styles.hint}>No phone numbers are exchanged</Text>
@@ -231,7 +331,7 @@ export default function CallScreen() {
           {ringing && !isInitiator ? (
             <View style={styles.controls}>
               <Control
-                icon="close"
+                icon="call"
                 label="Decline"
                 tone="decline"
                 onPress={() => answer(false)}
@@ -253,6 +353,7 @@ export default function CallScreen() {
                 tone="decline"
                 onPress={endCall}
                 disabled={busy}
+                showLabel={active}
               />
             </View>
           )}
@@ -263,6 +364,26 @@ export default function CallScreen() {
         <View style={styles.error}>
           <Ionicons name="alert-circle-outline" size={16} color="#FFB4AB" />
           <Text style={styles.errorText}>{error}</Text>
+          {permission === 'denied' ? (
+            <View style={styles.permissionActions}>
+              <Pressable
+                onPress={() => void retryPermissions()}
+                accessibilityRole="button"
+                accessibilityLabel="Try microphone permission again"
+                style={styles.permissionButton}
+              >
+                <Text style={styles.permissionText}>Try again</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void Linking.openSettings()}
+                accessibilityRole="button"
+                accessibilityLabel="Open system settings"
+                style={styles.permissionButton}
+              >
+                <Text style={styles.permissionText}>Settings</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </SafeAreaView>
@@ -306,6 +427,7 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   controlLabel: { color: colors.white, fontSize: 10, fontWeight: '600' },
+  hangup: { transform: [{ rotate: '135deg' }] },
   error: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -316,4 +438,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,180,171,0.12)',
   },
   errorText: { ...type.caption, fontSize: 12, color: '#FFB4AB', flex: 1 },
+  permissionActions: { flexDirection: 'row', gap: spacing.sm },
+  permissionButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,180,171,0.18)',
+  },
+  permissionText: { ...type.caption, fontSize: 12, color: '#FFB4AB', fontWeight: '600' },
 });

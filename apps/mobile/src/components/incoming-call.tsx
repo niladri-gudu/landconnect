@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
 
 import { SOCKET_EVENTS, type CallDto } from '@landconnect/shared';
 
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { ensureCallPermissions } from '@/lib/call-permissions';
 import { roleLabel } from '@/lib/format';
 import { connectSocket } from '@/lib/socket';
 import { colors, radius, spacing, type } from '@/lib/theme';
@@ -22,15 +22,6 @@ export function IncomingCallHost() {
   const router = useRouter();
   const pathname = usePathname();
   const [incoming, setIncoming] = useState<CallDto | null>(null);
-
-  const conversation = useQuery({
-    queryKey: ['conversation', incoming?.conversationId],
-    queryFn: () => api.conversations.get(incoming?.conversationId as string),
-    enabled: Boolean(incoming?.conversationId),
-  });
-  const other = conversation.data?.participants.find(
-    (participant) => participant.id !== user?.id,
-  );
 
   useEffect(() => {
     if (!accessToken || !user) return;
@@ -74,6 +65,18 @@ export function IncomingCallHost() {
   async function accept() {
     if (!incoming) return;
     const call = incoming;
+
+    // Asking after answering would join a room with a muted microphone and
+    // no way to tell the caller why. Gate acceptance on the permission prompt.
+    const allowed = await ensureCallPermissions(call.kind);
+    if (!allowed) {
+      Alert.alert(
+        'Microphone access needed',
+        'Allow microphone access (and camera access for video calls) in Settings to take this call.',
+      );
+      return;
+    }
+
     setIncoming(null);
     try {
       await api.calls.answer(call.id, true);
@@ -96,7 +99,7 @@ export function IncomingCallHost() {
 
   if (!incoming) return null;
 
-  const name = other?.name ?? 'LandConnect member';
+  const caller = incoming.initiator;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={decline}>
@@ -106,9 +109,9 @@ export function IncomingCallHost() {
             {incoming.kind === 'VIDEO' ? 'Incoming video call' : 'Incoming audio call'}
           </Text>
 
-          <Avatar name={name} uri={other?.avatarUrl} size={78} ring />
-          <Text style={styles.name}>{name}</Text>
-          <Text style={styles.role}>{other ? `${roleLabel(other.role)} · ` : ''}LandConnect</Text>
+          <Avatar name={caller.name} uri={caller.avatarUrl} size={78} ring />
+          <Text style={styles.name}>{caller.name}</Text>
+          <Text style={styles.role}>{roleLabel(caller.role)} · LandConnect</Text>
           <View style={styles.lockRow}>
             <Ionicons name="lock-closed-outline" size={13} color="rgba(255,255,255,0.6)" />
             <Text style={styles.hint}>No phone numbers are exchanged</Text>
@@ -122,7 +125,7 @@ export function IncomingCallHost() {
                 accessibilityRole="button"
                 accessibilityLabel="Decline call"
               >
-                <Ionicons name="close" size={28} color={colors.white} />
+                <Ionicons name="call" size={26} color={colors.white} style={styles.hangup} />
               </Pressable>
               <Text style={styles.actionLabel}>Decline</Text>
             </View>
@@ -186,5 +189,6 @@ const styles = StyleSheet.create({
   },
   decline: { backgroundColor: colors.danger },
   accept: { backgroundColor: colors.primary },
+  hangup: { transform: [{ rotate: '135deg' }] },
   actionLabel: { ...type.caption, fontSize: 12, color: 'rgba(255,255,255,0.8)' },
 });

@@ -27,6 +27,7 @@ import {
 import { Avatar, IconButton, Loading } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { ensureCallPermissions } from '@/lib/call-permissions';
 import { formatDayLabel, formatTime, roleLabel } from '@/lib/format';
 import { getSocket, joinConversation, leaveConversation } from '@/lib/socket';
 import { colors, radius, spacing, type } from '@/lib/theme';
@@ -303,6 +304,16 @@ export default function ChatScreen() {
     setStartingCall(kind);
     setError(null);
     try {
+      const allowed = await ensureCallPermissions(kind);
+      if (!allowed) {
+        setError(
+          kind === 'VIDEO'
+            ? 'Microphone and camera access are required for video calls. Allow them in Settings, then try again.'
+            : 'Microphone access is required for calls. Allow it in Settings, then try again.',
+        );
+        return;
+      }
+
       const call = await api.calls.create({ conversationId, kind });
       router.push(`/call/${call.id}` as Href);
     } catch (err) {
