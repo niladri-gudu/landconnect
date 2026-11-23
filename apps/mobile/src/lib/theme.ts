@@ -1,51 +1,53 @@
 /**
  * LandConnect design tokens.
  *
- * A calm, photography-led land marketplace: warm ivory ground, white surfaces,
- * one deep forest green brand thread, sage hairlines, charcoal text. Photography
- * is the only saturated colour on a feed card.
+ * Mirrors the landconnect.si palette: near-black forest ink, deep green,
+ * mint, pale mint ground, and a single amber accent. Photography stays the
+ * only saturated colour on a feed card.
  */
 export const colors = {
-  primary: '#14532D',
-  primaryDark: '#0B2E1F',
-  primarySoft: '#E7F0E9',
-  primaryMuted: '#2F6B4F',
-  accent: '#2F6B4F',
-  accentDark: '#24543E',
-  teal: '#2F6B4F',
+  primary: '#0F6E56',
+  primaryDark: '#10201C',
+  primarySoft: '#E8F1ED',
+  primaryMuted: '#3E8F78',
+  accent: '#EF9F27',
+  accentDark: '#C9821B',
+  teal: '#5DCAA5',
+  mint: '#5DCAA5',
+  amber: '#EF9F27',
 
-  background: '#F7F5F0',
+  background: '#F5F8F7',
   surface: '#FFFFFF',
-  surfaceAlt: '#F2EFE8',
-  surfaceMuted: '#EFEAE0',
-  scrim: 'rgba(10, 20, 14, 0.55)',
-  overlay: 'rgba(12, 24, 18, 0.5)',
+  surfaceAlt: '#E8F1ED',
+  surfaceMuted: '#DCEAE4',
+  scrim: 'rgba(16, 32, 28, 0.55)',
+  overlay: 'rgba(16, 32, 28, 0.5)',
 
-  text: '#1C2420',
-  textMuted: '#5F6B63',
-  textFaint: '#8B948D',
+  text: '#10201C',
+  textMuted: '#4B5C55',
+  textFaint: '#9CA3AF',
 
-  border: '#E3DED2',
-  borderStrong: '#D3CCBC',
+  border: '#E5E7EB',
+  borderStrong: '#D1D5DB',
 
   danger: '#B3261E',
   dangerSoft: '#FBE9E7',
   warning: '#8A5A00',
   warningSoft: '#FFF3D6',
-  success: '#1F6E43',
-  successSoft: '#E4F2E8',
+  success: '#0F6E56',
+  successSoft: '#E8F1ED',
 
   white: '#FFFFFF',
   onPrimary: '#FFFFFF',
 
   bubbleIn: '#FFFFFF',
-  bubbleOut: '#DCEFD8',
-  chatBackground: '#F4F1E9',
-  tickRead: '#2F80ED',
-  tickMuted: '#8B948D',
+  bubbleOut: '#D7F0E6',
+  chatBackground: '#F1F7F4',
+  tickRead: '#0F6E56',
+  tickMuted: '#9CA3AF',
 
-  imageFallback: '#D9E6DA',
-  imageFallbackDeep: '#B5CBB8',
+  imageFallback: '#D8E9E2',
+  imageFallbackDeep: '#A9CFC0',
 } as const;
 
 export const spacing = {
@@ -125,7 +127,7 @@ export const type = {
 
 export const shadow = {
   floating: {
-    shadowColor: '#1C2420',
+    shadowColor: '#10201C',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 16,

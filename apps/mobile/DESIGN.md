@@ -6,11 +6,12 @@ ui and ux properly and make it look good … make the ui and ux like a proper go
 
 ## Direction
 
-A calm, credible land marketplace. Photography and land facts lead; chrome stays quiet. Green is the
-brand thread, interpreted as deep forest rather than WhatsApp teal. The craft bar is **Airbnb**
-(whitespace, photography, restrained controls) plus **WhatsApp** (bubble chat, ticks, unread badges,
-composer familiarity). No playful/gamified devices, no generic Material template, no dark-luxury
-styling.
+A calm, credible land marketplace. Photography and land facts lead; chrome stays quiet. The palette
+comes from the landconnect.si landing page: near-black forest ink (`#10201C`), deep green
+(`#0F6E56`), mint (`#5DCAA5`), pale mint ground (`#E8F1ED`) and one amber accent (`#EF9F27`). The
+craft bar is **Airbnb** (whitespace, photography, restrained controls) plus **WhatsApp** (bubble
+chat, ticks, unread badges, composer familiarity). No playful/gamified devices, no generic Material
+template, no dark-luxury styling.
 
 Android portrait only. Light theme only (`userInterfaceStyle: light`); dark theme is a deliberate
 follow-up, not a half-finished state.
@@ -19,23 +20,43 @@ follow-up, not a half-finished state.
 
 | Token | Value | Use |
 |---|---|---|
-| `primary` | `#14532D` | brand, primary buttons, active nav, outgoing accents |
-| `primaryDark` | `#0B2E1F` | auth hero, call stage, profile hero |
-| `primarySoft` | `#E7F0E9` | tonal buttons, icons, selected role cards |
-| `background` | `#F7F5F0` | app ground |
+| `primary` | `#0F6E56` | brand, primary buttons, active nav, outgoing accents |
+| `primaryDark` | `#10201C` | auth hero, call stage, profile hero, splash |
+| `primarySoft` | `#E8F1ED` | tonal buttons, icons, selected role cards |
+| `mint` / `teal` | `#5DCAA5` | highlights and the logo's light wedge |
+| `accent` / `amber` | `#EF9F27` | single accent, logo sun, price emphasis |
+| `background` | `#F5F8F7` | app ground |
 | `surface` | `#FFFFFF` | cards, bars, sheets |
-| `surfaceAlt` | `#F2EFE8` | input fills, pressed rows |
-| `text` | `#1C2420` | primary text |
-| `textMuted` | `#5F6B63` | secondary text |
-| `textFaint` | `#8B948D` | placeholders, timestamps |
-| `border` | `#E3DED2` | sage hairlines |
+| `surfaceAlt` | `#E8F1ED` | input fills, pressed rows |
+| `text` | `#10201C` | primary text |
+| `textMuted` | `#4B5C55` | secondary text |
+| `textFaint` | `#9CA3AF` | placeholders, timestamps |
+| `border` | `#E5E7EB` | hairlines |
 | `danger` | `#B3261E` | destructive actions and errors |
-| `bubbleOut` | `#DCEFD8` | outgoing chat bubbles |
-| `chatBackground` | `#F4F1E9` | chat ground |
-| `tickRead` | `#2F80ED` | read receipts |
+| `bubbleOut` | `#D7F0E6` | outgoing chat bubbles |
+| `chatBackground` | `#F1F7F4` | chat ground |
+| `tickRead` | `#0F6E56` | read receipts |
 
 Photography is the only saturated colour on a feed card. Cards use a hairline border, never border
 plus a wide shadow.
+
+## Logo and icon
+
+The mark is the landconnect.si glyph: a `#10201C` rounded tile with two land wedges
+(`#0F6E56` left, `#5DCAA5` right) and an `#EF9F27` sun at the horizon, with an `#10201C` centre dot.
+It is rendered from the original 48-unit SVG at high density, never upscaled from a screenshot:
+
+| Asset | Source | Use |
+|---|---|---|
+| `assets/images/icon.png` | full glyph, 1024 | Android legacy icon, web |
+| `assets/images/android-icon-foreground.png` | glyph at 66% safe zone | adaptive foreground |
+| `assets/images/android-icon-background.png` | solid `#10201C` | adaptive background |
+| `assets/images/android-icon-monochrome.png` | white silhouette | themed icons |
+| `assets/images/splash-icon.png` | mark without tile | splash on `#10201C`, 200dp |
+| `assets/images/brand-mark.png` | full glyph, 288 | auth hero |
+
+The login screen shows the mark above the LandConnect wordmark; the register screen repeats it above
+the form heading.
 
 ## Typography
 

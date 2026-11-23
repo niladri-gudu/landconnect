@@ -3,6 +3,7 @@ import { Link, useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -50,9 +51,11 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.hero}>
-            <View style={styles.brandMark}>
-              <Text style={styles.brandMarkText}>LC</Text>
-            </View>
+            <Image
+              source={require('../../../assets/images/brand-mark.png')}
+              style={styles.brandMark}
+              accessibilityIgnoresInvertColors
+            />
             <Text style={styles.brandName}>LandConnect</Text>
             <Text style={styles.tagline}>
               Find land. Talk directly. Keep your number private.
@@ -80,6 +83,8 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
               autoComplete="current-password"
               placeholder="Your password"
               icon="lock-closed-outline"
@@ -120,18 +125,7 @@ const styles = StyleSheet.create({
     gap: spacing.xxl,
   },
   hero: { alignItems: 'center', gap: spacing.sm },
-  brandMark: {
-    width: 62,
-    height: 62,
-    borderRadius: 19,
-    backgroundColor: colors.primary,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-  },
-  brandMarkText: { color: colors.white, fontSize: 22, fontWeight: '800', letterSpacing: 0.4 },
+  brandMark: { width: 68, height: 68, marginBottom: spacing.sm },
   brandName: { ...type.display, color: colors.white },
   tagline: {
     ...type.body,

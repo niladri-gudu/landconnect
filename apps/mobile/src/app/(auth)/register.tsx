@@ -3,6 +3,7 @@ import { Link, useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -83,6 +84,11 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.hero}>
+            <Image
+              source={require('../../../assets/images/brand-mark.png')}
+              style={styles.brandMark}
+              accessibilityIgnoresInvertColors
+            />
             <Text style={styles.title}>Create your account</Text>
             <Text style={styles.subtitle}>
               Choose how you’ll use LandConnect. You can always browse, chat and call.
@@ -166,6 +172,8 @@ export default function RegisterScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
               autoComplete="new-password"
               placeholder="At least 8 characters"
               icon="lock-closed-outline"
@@ -198,6 +206,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: spacing.xl, paddingBottom: spacing.huge, gap: spacing.xxl },
   hero: { gap: spacing.sm, paddingTop: spacing.xxl },
+  brandMark: { width: 56, height: 56, marginBottom: spacing.xs },
   title: { ...type.h1, color: colors.white },
   subtitle: { ...type.body, color: 'rgba(255,255,255,0.72)', maxWidth: 330 },
   card: {

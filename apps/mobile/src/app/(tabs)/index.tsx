@@ -4,6 +4,7 @@ import { useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import {
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -71,9 +72,11 @@ export default function CommunityScreen() {
           <View style={styles.header}>
             <View style={styles.topBar}>
               <View style={styles.brand}>
-                <View style={styles.brandMark}>
-                  <Text style={styles.brandMarkText}>LC</Text>
-                </View>
+                <Image
+                  source={require('../../../assets/images/brand-mark.png')}
+                  style={styles.brandMark}
+                  accessibilityIgnoresInvertColors
+                />
                 <Text style={styles.brandName}>LandConnect</Text>
               </View>
               <Pressable
@@ -175,15 +178,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxl,
   },
   brand: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  brandMark: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandMarkText: { color: colors.white, fontSize: 12, fontWeight: '800', letterSpacing: 0.2 },
+  brandMark: { width: 32, height: 32 },
   brandName: { ...type.title, fontSize: 16, color: colors.text },
   heading: { ...type.display, color: colors.text },
   subheading: {
