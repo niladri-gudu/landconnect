@@ -8,8 +8,11 @@ import { env } from './env';
 import { prisma } from './lib/prisma';
 import { attachRealtime } from './realtime';
 
-const httpServer = createServer();
-const io = new Server(httpServer, {
+// Express must be passed to createServer before Socket.IO attaches. engine.io
+// wraps the server's existing request listeners at attach time; adding
+// Express afterwards races the socket handler and answers 404 for
+// /socket.io/ handshakes, so no realtime event ever reaches a client.
+const io = new Server({
   cors: {
     origin: env.corsOrigin === '*' ? true : env.corsOrigin.split(','),
   },
@@ -18,7 +21,8 @@ const io = new Server(httpServer, {
 attachRealtime(io);
 
 const app = createApp(io);
-httpServer.on('request', app);
+const httpServer = createServer(app);
+io.attach(httpServer);
 
 /** Wake Neon (and Prisma's pool) before the first user request does. */
 async function warmDatabase() {

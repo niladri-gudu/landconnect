@@ -15,6 +15,12 @@ export const env = {
     apiKey: process.env.LIVEKIT_API_KEY ?? '',
     apiSecret: process.env.LIVEKIT_API_SECRET ?? '',
   },
+  storage: {
+    // Neon injects AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION too;
+    // the Files SDK reads those from the environment.
+    endpoint: process.env.AWS_ENDPOINT_URL_S3 ?? '',
+    bucket: process.env.NEON_STORAGE_BUCKET ?? 'uploads',
+  },
 };
 
 export const livekitEnabled = Boolean(

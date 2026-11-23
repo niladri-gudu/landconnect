@@ -40,3 +40,6 @@ Thumbs.db
 .agents/
 skills-lock.json
 .claude/
+.neon
+.mcp.json
+apps/mobile/.impeccable/

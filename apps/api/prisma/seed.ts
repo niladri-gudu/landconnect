@@ -56,6 +56,10 @@ async function main() {
       state: 'Karnataka',
       latitude: 13.2437,
       longitude: 77.7139,
+      images: [
+        'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1500076656116-558758c991c1?auto=format&fit=crop&w=1200&q=80',
+      ],
       ownerId: seller.id,
     },
     {
@@ -69,6 +73,10 @@ async function main() {
       state: 'Karnataka',
       latitude: 12.8639,
       longitude: 77.7876,
+      images: [
+        'https://images.unsplash.com/photo-1501854140801-50d01698950b?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80',
+      ],
       ownerId: broker.id,
     },
     {
@@ -82,6 +90,10 @@ async function main() {
       state: 'Tamil Nadu',
       latitude: 12.7409,
       longitude: 77.8253,
+      images: [
+        'https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&w=1200&q=80',
+      ],
       ownerId: seller.id,
     },
   ];
@@ -90,6 +102,13 @@ async function main() {
     const existing = await prisma.listing.findFirst({ where: { title: listing.title } });
     if (!existing) {
       await prisma.listing.create({ data: listing });
+    } else if (existing.images.length === 0) {
+      // Seeded rows created before stock photography existed get their cover
+      // images filled in without touching any other listing fields.
+      await prisma.listing.update({
+        where: { id: existing.id },
+        data: { images: listing.images },
+      });
     }
   }
 

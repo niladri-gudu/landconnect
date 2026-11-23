@@ -14,6 +14,7 @@ import { authRouter } from './routes/auth';
 import { callsRouter } from './routes/calls';
 import { conversationsRouter } from './routes/conversations';
 import { listingsRouter } from './routes/listings';
+import { uploadsRouter } from './routes/uploads';
 
 export function createApp(io: Server) {
   const app = express();
@@ -63,6 +64,7 @@ export function createApp(io: Server) {
 
   app.use('/api/auth', authRouter);
   app.use('/api/listings', listingsRouter);
+  app.use('/api/uploads', uploadsRouter);
   app.use('/api/conversations', conversationsRouter);
   app.use('/api/calls', callsRouter);
 
