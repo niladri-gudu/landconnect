@@ -84,6 +84,12 @@ export interface CallDto {
   conversationId: string;
   initiatorId: string;
   receiverId: string;
+  /**
+   * Denormalised participants so the ring overlay and call stage can render a
+   * name immediately, without waiting on a second conversation fetch.
+   */
+  initiator: ConversationParticipantDto;
+  receiver: ConversationParticipantDto;
   kind: CallKind;
   status: CallStatus;
   roomName: string;

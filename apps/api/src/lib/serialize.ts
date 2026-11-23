@@ -118,12 +118,32 @@ export function toConversationDto(
   };
 }
 
-export function toCallDto(call: CallSession): CallDto {
+type CallParticipant = Pick<User, 'id' | 'name' | 'role' | 'avatarUrl'>;
+
+/** CallSession with the two participants loaded — required by {@link toCallDto}. */
+export type CallWithParticipants = CallSession & {
+  initiator: CallParticipant;
+  receiver: CallParticipant;
+};
+
+export function toCallDto(call: CallWithParticipants): CallDto {
   return {
     id: call.id,
     conversationId: call.conversationId,
     initiatorId: call.initiatorId,
     receiverId: call.receiverId,
+    initiator: {
+      id: call.initiator.id,
+      name: call.initiator.name,
+      role: call.initiator.role as Role,
+      avatarUrl: call.initiator.avatarUrl,
+    },
+    receiver: {
+      id: call.receiver.id,
+      name: call.receiver.name,
+      role: call.receiver.role as Role,
+      avatarUrl: call.receiver.avatarUrl,
+    },
     kind: call.kind,
     status: call.status,
     roomName: call.roomName,

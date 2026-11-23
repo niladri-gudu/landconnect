@@ -18,8 +18,17 @@ import { toCallDto } from '../lib/serialize';
 
 export const callsRouter = Router();
 
+/** Every call response carries both participants so clients can render names. */
+const callInclude = {
+  initiator: { select: { id: true, name: true, role: true, avatarUrl: true } },
+  receiver: { select: { id: true, name: true, role: true, avatarUrl: true } },
+} as const;
+
 async function findCallForUser(id: string, userId: string) {
-  const call = await prisma.callSession.findUnique({ where: { id } });
+  const call = await prisma.callSession.findUnique({
+    where: { id },
+    include: callInclude,
+  });
   if (!call) throw new AppError(404, 'Call not found');
   if (call.initiatorId !== userId && call.receiverId !== userId) {
     throw new AppError(403, 'Not a participant in this call');
@@ -64,6 +73,7 @@ callsRouter.post('/', requireAuth, async (req, res) => {
       kind: input.kind,
       roomName: `landconnect-${randomUUID()}`,
     },
+    include: callInclude,
   });
 
   const dto = toCallDto(call);
@@ -104,6 +114,7 @@ callsRouter.post('/:id/answer', requireAuth, async (req, res) => {
     const rejected = await prisma.callSession.update({
       where: { id: call.id },
       data: { status: 'REJECTED', endedAt: new Date() },
+      include: callInclude,
     });
     emitCallEvent(req, toCallDto(rejected), SOCKET_EVENTS.callRejected);
     const body: CallAnswerDto = { call: toCallDto(rejected) };
@@ -114,6 +125,7 @@ callsRouter.post('/:id/answer', requireAuth, async (req, res) => {
   const active = await prisma.callSession.update({
     where: { id: call.id },
     data: { status: 'ACTIVE', startedAt: new Date() },
+    include: callInclude,
   });
   emitCallEvent(req, toCallDto(active), SOCKET_EVENTS.callAccepted);
 
@@ -136,6 +148,7 @@ callsRouter.post('/:id/end', requireAuth, async (req, res) => {
   const ended = await prisma.callSession.update({
     where: { id: call.id },
     data: { status: 'ENDED', endedAt: new Date() },
+    include: callInclude,
   });
   emitCallEvent(req, toCallDto(ended), SOCKET_EVENTS.callEnded);
 
