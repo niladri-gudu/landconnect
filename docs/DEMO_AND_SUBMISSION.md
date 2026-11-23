@@ -10,7 +10,7 @@
 
 | # | Deliverable | Content | Status |
 |---|---|---|---|
-| 1 | GitHub repository | Source, README, setup instructions, docs, no secrets | ⬜ |
+| 1 | GitHub repository | Source, README, setup instructions, docs, no secrets | ✅ pushed 2026-11-23 |
 | 2 | Working demo | Preview APK (Android) and/or hosted API + Expo link | ⬜ |
 | 3 | Demonstration video | 4–6 min, calling highlighted | ⬜ |
 | 4 | Technical documentation | This doc set + EXPLANATION.md | ✅ |
@@ -19,35 +19,32 @@
 
 ## 2. Repository preparation
 
-The local repo currently has **no commits and no remote**. Do this before recording:
+The repository is pushed to <https://github.com/niladri-gudu/landconnect> (`main`). Re-verify
+before recording and again before sending the email:
 
 ```bash
 cd D:/code/company_assessments/landconnect
 
-# 1. Verify nothing sensitive is tracked
+# 1. Nothing sensitive is tracked
 git status
-git check-ignore apps/api/.env apps/mobile/.env
-# both should be ignored
+git ls-tree -r origin/main --name-only | grep -E '(^|/)\.env($|\.)|\.neon$' || echo "clean"
 
-# 2. Stage and commit
-git add .
-git commit -m "feat: LandConnect prototype — auth, listings, messaging, calling"
-
-# 3. Create a public GitHub repo (via gh or the website)
-gh repo create landconnect-assessment --public --source=. --remote=origin --push
+# 2. Local and remote agree
+git fetch && git status -sb
+git log --oneline origin/main -3
 ```
 
 Repo hygiene checklist:
 
-- [ ] `.env`, `.env.*` ignored; only `.env.example` committed.
-- [ ] No keystores, APKs or `node_modules` committed.
+- [x] `.env`, `.env.*` ignored; only `.env.example` committed.
+- [x] No keystores, APKs or `node_modules` committed.
+- [x] `pnpm install && pnpm typecheck` passes.
 - [ ] README quick start works from a fresh clone.
-- [ ] `pnpm install && pnpm typecheck` passes.
 - [ ] `apps/mobile/.env` uses a placeholder or documented value, not a personal LAN IP if
       possible.
 - [ ] Docs links resolve on GitHub.
 - [ ] License/attribution if third-party assets are used.
-- [ ] `.agents/` and skills tooling are ignored (already in `.gitignore`).
+- [x] `.agents/`, `.claude/`, `.mcp.json`, `.neon` and `.impeccable/` tooling are ignored.
 
 ## 3. Demo environment
 
