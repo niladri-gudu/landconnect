@@ -1,21 +1,51 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { CallKind } from '@landconnect/shared';
 
-import { formatPrice } from '@/components/listing-card';
-import { MapPreview } from '@/components/map-preview';
-import { Avatar, Badge, Button, Card, Loading } from '@/components/ui';
+import { ListingImage } from '@/components/listing-image';
+import { ListingMap } from '@/components/listing-map';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  ErrorState,
+  IconButton,
+  Loading,
+  SectionHeader,
+} from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { colors, spacing } from '@/lib/theme';
+import {
+  formatArea,
+  formatListedShort,
+  formatPrice,
+  formatPricePerAcre,
+  roleLabel,
+} from '@/lib/format';
+import { colors, radius, spacing, type } from '@/lib/theme';
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const { user } = useAuth();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const [imageIndex, setImageIndex] = useState(0);
   const [busy, setBusy] = useState<'chat' | CallKind | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,13 +59,20 @@ export default function ListingDetailScreen() {
   if (listing.error || !listing.data) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>Listing not found.</Text>
+        <ErrorState
+          message={listing.error instanceof Error ? listing.error.message : undefined}
+          onRetry={() => {
+            void listing.refetch();
+          }}
+        />
       </View>
     );
   }
 
   const item = listing.data;
   const isOwner = item.ownerId === user?.id;
+  const images = item.images.length > 0 ? item.images : [null];
+  const imageHeight = Math.round(width * 0.74);
 
   async function start(kind?: CallKind) {
     setError(null);
@@ -58,119 +95,300 @@ export default function ListingDetailScreen() {
     }
   }
 
+  const pricePerAcre = formatPricePerAcre(item.price, item.areaAcres);
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: item.city }} />
+    <View style={styles.screen}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar style="light" />
 
-      {item.images[0] ? (
-        <Image source={{ uri: item.images[0] }} style={styles.cover} />
-      ) : (
-        <View style={styles.coverPlaceholder}>
-          <Text style={styles.coverLetter}>{item.title.slice(0, 1)}</Text>
-        </View>
-      )}
-
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>{item.title}</Text>
-        {item.status !== 'ACTIVE' ? <Badge label={item.status} /> : null}
-      </View>
-      <Text style={styles.price}>{formatPrice(item.price)}</Text>
-      <Text style={styles.meta}>
-        {item.areaAcres} acres · {item.city}, {item.state}
-      </Text>
-
-      <Card>
-        <Text style={styles.sectionTitle}>About this land</Text>
-        <Text style={styles.description}>{item.description}</Text>
-      </Card>
-
-      <MapPreview
-        latitude={item.latitude}
-        longitude={item.longitude}
-        label={`${item.address}, ${item.city}`}
-      />
-
-      <Card>
-        <Text style={styles.sectionTitle}>Listed by</Text>
-        <View style={styles.ownerRow}>
-          <Avatar name={item.owner?.name ?? 'Owner'} uri={item.owner?.avatarUrl} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.ownerName}>{item.owner?.name ?? 'Land owner'}</Text>
-            <Text style={styles.ownerRole}>
-              {item.owner?.role ? `${item.owner.role.toLowerCase()} · ` : ''}
-              Contact stays inside the app
-            </Text>
-          </View>
-        </View>
-      </Card>
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      {isOwner ? (
-        <Card>
-          <Text style={styles.sectionTitle}>This is your listing</Text>
-          <Text style={styles.meta}>Manage it from the My Listings tab.</Text>
-        </Card>
-      ) : (
-        <View style={styles.actions}>
-          <Button
-            label="Message seller"
-            onPress={() => start()}
-            loading={busy === 'chat'}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: isOwner ? spacing.xxxl : 116 + insets.bottom }}
+      >
+        <View>
+          <FlatList
+            data={images}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(_, index) => String(index)}
+            onMomentumScrollEnd={(event) => {
+              const next = Math.round(event.nativeEvent.contentOffset.x / width);
+              setImageIndex(next);
+            }}
+            renderItem={({ item: image }) => (
+              <ListingImage
+                uri={image}
+                title={item.title}
+                style={{ width, height: imageHeight }}
+              />
+            )}
           />
-          <View style={styles.callRow}>
-            <View style={styles.callButton}>
-              <Button
-                label="📞 Audio"
-                variant="secondary"
-                onPress={() => start('AUDIO')}
-                loading={busy === 'AUDIO'}
-              />
+
+          <View style={[styles.imageScrim, { height: insets.top + 64 }]} pointerEvents="none" />
+
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.backButton,
+              { top: insets.top + spacing.sm },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.text} />
+          </Pressable>
+
+          {images.length > 1 ? (
+            <View style={styles.dots} pointerEvents="none">
+              {images.map((_, index) => (
+                <View
+                  key={String(index)}
+                  style={[styles.dot, index === imageIndex && styles.dotActive]}
+                />
+              ))}
             </View>
-            <View style={styles.callButton}>
+          ) : null}
+        </View>
+
+        <View style={styles.sheet}>
+          <View style={styles.titleBlock}>
+            <View style={styles.priceRow}>
+              <Text style={styles.price}>{formatPrice(item.price)}</Text>
+              {item.status !== 'ACTIVE' ? (
+                <Badge label={item.status === 'SOLD' ? 'Sold' : 'Archived'} tone="warning" />
+              ) : null}
+            </View>
+            <Text style={styles.title}>{item.title}</Text>
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={16} color={colors.textMuted} />
+              <Text style={styles.locationText}>
+                {item.city}, {item.state}
+              </Text>
+            </View>
+          </View>
+
+          <Card style={styles.statsCard}>
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>Area</Text>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {formatArea(item.areaAcres)}
+              </Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>Per acre</Text>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {pricePerAcre ?? '—'}
+              </Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>Listed</Text>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {formatListedShort(item.createdAt)}
+              </Text>
+            </View>
+          </Card>
+
+          {isOwner ? (
+            <Card style={styles.ownerNote}>
+              <View style={styles.ownerNoteRow}>
+                <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+                <Text style={styles.ownerNoteTitle}>This is your listing</Text>
+              </View>
+              <Text style={styles.ownerNoteBody}>
+                Buyers reach you through LandConnect chat and calls. Your phone number is never
+                shown.
+              </Text>
               <Button
-                label="📹 Video"
-                variant="secondary"
-                onPress={() => start('VIDEO')}
-                loading={busy === 'VIDEO'}
+                label="Manage in My Listings"
+                icon="business-outline"
+                variant="tonal"
+                size="small"
+                onPress={() => router.push('/(tabs)/listings' as Href)}
+              />
+            </Card>
+          ) : item.owner ? (
+            <Card>
+              <View style={styles.ownerRow}>
+                <Avatar name={item.owner.name} uri={item.owner.avatarUrl} size={48} />
+                <View style={styles.ownerCopy}>
+                  <Text style={styles.ownerName}>{item.owner.name}</Text>
+                  <Text style={styles.ownerMeta}>
+                    {roleLabel(item.owner.role)} · Contact stays in the app
+                  </Text>
+                </View>
+                <Ionicons name="lock-closed-outline" size={18} color={colors.textFaint} />
+              </View>
+            </Card>
+          ) : null}
+
+          <View style={styles.section}>
+            <SectionHeader title="About this land" />
+            <Text style={styles.description}>{item.description}</Text>
+            <View style={styles.addressRow}>
+              <Ionicons name="map-outline" size={16} color={colors.textMuted} />
+              <Text style={styles.address}>{item.address}</Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <SectionHeader title="Location" />
+            <ListingMap
+              latitude={item.latitude}
+              longitude={item.longitude}
+              label={`${item.address}, ${item.city}`}
+            />
+          </View>
+
+          {error ? (
+            <View style={styles.errorBanner}>
+              <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      {!isOwner ? (
+        <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+          <View style={styles.actionRow}>
+            <IconButton
+              name="call-outline"
+              onPress={() => start('AUDIO')}
+              accessibilityLabel="Start audio call"
+              variant="outline"
+              size={50}
+              disabled={busy !== null}
+            />
+            <IconButton
+              name="videocam-outline"
+              onPress={() => start('VIDEO')}
+              accessibilityLabel="Start video call"
+              variant="outline"
+              size={50}
+              disabled={busy !== null}
+            />
+            <View style={styles.messageButton}>
+              <Button
+                label="Message seller"
+                icon="chatbubble-ellipses-outline"
+                onPress={() => start()}
+                loading={busy === 'chat'}
               />
             </View>
           </View>
         </View>
-      )}
-    </ScrollView>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { paddingBottom: spacing.xxl, gap: spacing.md },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  cover: { width: '100%', height: 240 },
-  coverPlaceholder: {
-    height: 200,
-    backgroundColor: colors.bubbleOut,
+  center: { flex: 1, justifyContent: 'center' },
+  imageScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(10, 18, 14, 0.28)',
+  },
+  backButton: {
+    position: 'absolute',
+    left: spacing.lg,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  coverLetter: { fontSize: 64, fontWeight: '800', color: colors.primary },
-  headerRow: {
-    paddingHorizontal: spacing.lg,
+  dots: {
+    position: 'absolute',
+    bottom: spacing.xxxl + spacing.sm,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  dotActive: { backgroundColor: colors.white, width: 18 },
+  sheet: {
+    marginTop: -spacing.xxl,
+    borderTopLeftRadius: radius.xxl,
+    borderTopRightRadius: radius.xxl,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl,
+    gap: spacing.xl,
+  },
+  titleBlock: { gap: spacing.sm },
+  priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  price: { ...type.display, color: colors.primary },
+  title: { ...type.h1, fontSize: 23, lineHeight: 30, color: colors.text },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  locationText: { ...type.body, color: colors.textMuted },
+  statsCard: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    gap: 0,
+  },
+  statCell: { flex: 1, paddingHorizontal: spacing.sm, gap: 4 },
+  statLabel: { ...type.micro, color: colors.textMuted, textTransform: 'uppercase' },
+  statValue: { ...type.bodyStrong, fontSize: 14, color: colors.text },
+  statDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  ownerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  ownerCopy: { flex: 1, gap: 2 },
+  ownerName: { ...type.title },
+  ownerMeta: { ...type.caption, color: colors.textMuted },
+  ownerNote: { gap: spacing.sm },
+  ownerNoteRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  ownerNoteTitle: { ...type.title },
+  ownerNoteBody: { ...type.caption, color: colors.textMuted, lineHeight: 19 },
+  section: { gap: spacing.md },
+  description: { ...type.body, color: colors.textMuted },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: spacing.sm,
   },
-  title: { flex: 1, fontSize: 22, fontWeight: '800', color: colors.text },
-  price: { paddingHorizontal: spacing.lg, fontSize: 24, fontWeight: '800', color: colors.primary },
-  meta: { paddingHorizontal: spacing.lg, fontSize: 14, color: colors.textMuted },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  description: { fontSize: 14, lineHeight: 22, color: colors.textMuted },
-  ownerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
-  ownerName: { fontSize: 16, fontWeight: '700', color: colors.text },
-  ownerRole: { fontSize: 13, color: colors.textMuted },
-  actions: { paddingHorizontal: spacing.lg, gap: spacing.md },
-  callRow: { flexDirection: 'row', gap: spacing.md },
-  callButton: { flex: 1 },
-  error: { paddingHorizontal: spacing.lg, color: colors.danger, fontSize: 14 },
+  address: { ...type.caption, color: colors.textMuted, flex: 1, lineHeight: 19 },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.dangerSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  errorText: { ...type.caption, color: colors.danger, flex: 1 },
+  actionBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  messageButton: { flex: 1 },
 });

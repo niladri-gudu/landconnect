@@ -1,12 +1,20 @@
-export const API_URL = (
-  process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000'
-).replace(/\/$/, '');
+import Constants from 'expo-constants';
 
-if (
-  process.env.NODE_ENV !== 'production' &&
-  /localhost|127\.0\.0\.1/.test(API_URL)
-) {
-  console.warn(
-    `[api] EXPO_PUBLIC_API_URL is ${API_URL}. A physical phone cannot reach localhost — use your computer's LAN IP (e.g. http://192.168.1.20:4000).`,
-  );
+/**
+ * In development the API runs on the same machine as Metro. Deriving the host
+ * from the dev-server URL keeps the app working when the LAN IP changes, on
+ * both the emulator (adb reverse → 127.0.0.1) and a physical phone (LAN IP).
+ * Production builds have no hostUri and use the configured env URL.
+ */
+function bundlerHost(): string | null {
+  const hostUri =
+    Constants.expoConfig?.hostUri ?? Constants.expoGoConfig?.debuggerHost;
+  if (!hostUri) return null;
+  const host = hostUri.split(':')[0];
+  return host || null;
 }
+
+const fallback = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
+const host = bundlerHost();
+
+export const API_URL = (host ? `http://${host}:4000` : fallback).replace(/\/$/, '');

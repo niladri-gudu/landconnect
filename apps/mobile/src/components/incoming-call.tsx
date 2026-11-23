@@ -1,20 +1,17 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  Vibration,
-  View,
-} from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
 
 import { SOCKET_EVENTS, type CallDto } from '@landconnect/shared';
 
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { roleLabel } from '@/lib/format';
 import { connectSocket } from '@/lib/socket';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, type } from '@/lib/theme';
+import { Avatar } from './ui';
 
 /**
  * App-level ring UI. Without this, the receiver only sees a call if they are
@@ -25,6 +22,15 @@ export function IncomingCallHost() {
   const router = useRouter();
   const pathname = usePathname();
   const [incoming, setIncoming] = useState<CallDto | null>(null);
+
+  const conversation = useQuery({
+    queryKey: ['conversation', incoming?.conversationId],
+    queryFn: () => api.conversations.get(incoming?.conversationId as string),
+    enabled: Boolean(incoming?.conversationId),
+  });
+  const other = conversation.data?.participants.find(
+    (participant) => participant.id !== user?.id,
+  );
 
   useEffect(() => {
     if (!accessToken || !user) return;
@@ -90,6 +96,8 @@ export function IncomingCallHost() {
 
   if (!incoming) return null;
 
+  const name = other?.name ?? 'LandConnect member';
+
   return (
     <Modal visible transparent animationType="fade" onRequestClose={decline}>
       <View style={styles.backdrop}>
@@ -97,23 +105,38 @@ export function IncomingCallHost() {
           <Text style={styles.kind}>
             {incoming.kind === 'VIDEO' ? 'Incoming video call' : 'Incoming audio call'}
           </Text>
-          <Text style={styles.hint}>No phone numbers are exchanged</Text>
+
+          <Avatar name={name} uri={other?.avatarUrl} size={78} ring />
+          <Text style={styles.name}>{name}</Text>
+          <Text style={styles.role}>{other ? `${roleLabel(other.role)} · ` : ''}LandConnect</Text>
+          <View style={styles.lockRow}>
+            <Ionicons name="lock-closed-outline" size={13} color="rgba(255,255,255,0.6)" />
+            <Text style={styles.hint}>No phone numbers are exchanged</Text>
+          </View>
 
           <View style={styles.actions}>
-            <Pressable
-              style={[styles.circle, styles.decline]}
-              onPress={decline}
-              accessibilityLabel="Decline call"
-            >
-              <Text style={styles.glyph}>✕</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.circle, styles.accept]}
-              onPress={accept}
-              accessibilityLabel="Accept call"
-            >
-              <Text style={styles.glyph}>✓</Text>
-            </Pressable>
+            <View style={styles.action}>
+              <Pressable
+                style={[styles.circle, styles.decline]}
+                onPress={decline}
+                accessibilityRole="button"
+                accessibilityLabel="Decline call"
+              >
+                <Ionicons name="close" size={28} color={colors.white} />
+              </Pressable>
+              <Text style={styles.actionLabel}>Decline</Text>
+            </View>
+            <View style={styles.action}>
+              <Pressable
+                style={[styles.circle, styles.accept]}
+                onPress={accept}
+                accessibilityRole="button"
+                accessibilityLabel="Accept call"
+              >
+                <Ionicons name="call" size={26} color={colors.white} />
+              </Pressable>
+              <Text style={styles.actionLabel}>Accept</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -124,7 +147,7 @@ export function IncomingCallHost() {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(5, 14, 10, 0.78)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
@@ -133,26 +156,35 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 340,
     backgroundColor: colors.primaryDark,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
+    borderRadius: radius.xxl,
+    padding: spacing.xxl,
     alignItems: 'center',
     gap: spacing.sm,
   },
-  kind: { color: colors.white, fontSize: 22, fontWeight: '800', textAlign: 'center' },
-  hint: { color: '#B8D8D2', fontSize: 13, textAlign: 'center' },
+  kind: {
+    ...type.label,
+    color: 'rgba(255,255,255,0.62)',
+    textTransform: 'uppercase',
+    marginBottom: spacing.sm,
+  },
+  name: { ...type.h2, color: colors.white, marginTop: spacing.sm },
+  role: { ...type.caption, color: 'rgba(255,255,255,0.64)' },
+  lockRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: spacing.xs },
+  hint: { ...type.caption, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
   actions: {
     flexDirection: 'row',
-    gap: spacing.xxl,
-    marginTop: spacing.xl,
+    gap: spacing.huge,
+    marginTop: spacing.xxl,
   },
+  action: { alignItems: 'center', gap: spacing.sm },
   circle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 74,
+    height: 74,
+    borderRadius: 37,
     alignItems: 'center',
     justifyContent: 'center',
   },
   decline: { backgroundColor: colors.danger },
-  accept: { backgroundColor: colors.accent },
-  glyph: { color: colors.white, fontSize: 28, fontWeight: '800' },
+  accept: { backgroundColor: colors.primary },
+  actionLabel: { ...type.caption, fontSize: 12, color: 'rgba(255,255,255,0.8)' },
 });

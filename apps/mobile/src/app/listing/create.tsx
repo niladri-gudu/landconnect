@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
@@ -13,9 +15,11 @@ import {
 
 import { listingCreateSchema } from '@landconnect/shared';
 
-import { Button, Field } from '@/components/ui';
+import { ListingImage } from '@/components/listing-image';
+import { LocationPicker } from '@/components/listing-map';
+import { Button, Card, Field, SectionHeader } from '@/components/ui';
 import { api } from '@/lib/api';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, type } from '@/lib/theme';
 
 export default function CreateListingScreen() {
   const router = useRouter();
@@ -26,7 +30,7 @@ export default function CreateListingScreen() {
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
-  const [images, setImages] = useState('');
+  const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [latitude, setLatitude] = useState('12.9716');
   const [longitude, setLongitude] = useState('77.5946');
   const [locating, setLocating] = useState(false);
@@ -59,6 +63,34 @@ export default function CreateListingScreen() {
     return Number(value.replace(/,/g, '').trim());
   }
 
+  async function pickPhotos() {
+    setError(null);
+    const remaining = 4 - photos.length;
+    if (remaining <= 0) return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setError('Photo permission was denied — allow it in system settings.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.8,
+      });
+      if (!result.canceled) {
+        setPhotos((current) => [...current, ...result.assets].slice(0, 4));
+      }
+    } catch {
+      setError('Could not open the photo library.');
+    }
+  }
+
+  function removePhoto(index: number) {
+    setPhotos((current) => current.filter((_, i) => i !== index));
+  }
+
   async function submit() {
     setBusy(true);
     setError(null);
@@ -74,10 +106,7 @@ export default function CreateListingScreen() {
       country: 'India',
       latitude: toNumber(latitude),
       longitude: toNumber(longitude),
-      images: images
-        .split(',')
-        .map((url) => url.trim())
-        .filter(Boolean),
+      images: [] as string[],
     };
 
     // Validate locally first so the error names the exact field and rule.
@@ -91,7 +120,19 @@ export default function CreateListingScreen() {
     }
 
     try {
-      const listing = await api.listings.create(parsed.data);
+      const imageUrls =
+        photos.length > 0
+          ? (
+              await api.uploads.images(
+                photos.map((photo, index) => ({
+                  uri: photo.uri,
+                  name: photo.fileName ?? `photo-${index + 1}.jpg`,
+                  type: photo.mimeType ?? 'image/jpeg',
+                })),
+              )
+            ).urls
+          : [];
+      const listing = await api.listings.create({ ...parsed.data, images: imageUrls });
       router.replace(`/listing/${listing.id}` as Href);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not publish listing');
@@ -105,86 +146,176 @@ export default function CreateListingScreen() {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Field label="Title" value={title} onChangeText={setTitle} placeholder="5-acre farm land near highway" />
-        <Field
-          label="Description"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          placeholder="Soil, access road, water, documents, nearby landmarks…"
-        />
-        <View style={styles.row}>
-          <View style={styles.flex}>
-            <Field
-              label="Price (₹)"
-              value={price}
-              onChangeText={setPrice}
-              keyboardType="numeric"
-              placeholder="2500000"
-            />
-          </View>
-          <View style={styles.flex}>
-            <Field
-              label="Area (acres)"
-              value={areaAcres}
-              onChangeText={setAreaAcres}
-              keyboardType="numeric"
-              placeholder="5"
-            />
-          </View>
-        </View>
-        <Field label="Address" value={address} onChangeText={setAddress} />
-        <View style={styles.row}>
-          <View style={styles.flex}>
-            <Field label="City" value={city} onChangeText={setCity} />
-          </View>
-          <View style={styles.flex}>
-            <Field label="State" value={state} onChangeText={setState} />
-          </View>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.intro}>
+          <Text style={styles.heading}>Publish your land</Text>
+          <Text style={styles.subheading}>
+            Add the facts buyers care about. You can edit or remove the listing later.
+          </Text>
         </View>
 
-        <View style={styles.locationBox}>
-          <Text style={styles.label}>Location</Text>
-          <View style={styles.row}>
-            <View style={styles.flex}>
-              <Field
-                label="Latitude"
-                value={latitude}
-                onChangeText={setLatitude}
-                keyboardType="numeric"
-              />
+        <View style={styles.section}>
+          <SectionHeader title="The basics" />
+          <Card style={styles.card}>
+            <Field
+              label="Title"
+              value={title}
+              onChangeText={setTitle}
+              placeholder="5-acre farm land near the highway"
+              hint="At least 5 characters."
+            />
+            <Field
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              placeholder="Soil, water, access road, documents, nearby landmarks…"
+              hint="At least 20 characters. Mention what makes this plot useful."
+            />
+          </Card>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader title="Price and size" />
+          <Card style={styles.card}>
+            <View style={styles.row}>
+              <View style={styles.flex}>
+                <Field
+                  label="Price (₹)"
+                  value={price}
+                  onChangeText={setPrice}
+                  keyboardType="numeric"
+                  placeholder="25,00,000"
+                />
+              </View>
+              <View style={styles.flex}>
+                <Field
+                  label="Area (acres)"
+                  value={areaAcres}
+                  onChangeText={setAreaAcres}
+                  keyboardType="numeric"
+                  placeholder="5"
+                />
+              </View>
             </View>
-            <View style={styles.flex}>
-              <Field
-                label="Longitude"
-                value={longitude}
-                onChangeText={setLongitude}
-                keyboardType="numeric"
-              />
+          </Card>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader title="Location" />
+          <Card style={styles.card}>
+            <Field
+              label="Address"
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Village, taluk, landmark"
+              icon="location-outline"
+            />
+            <View style={styles.row}>
+              <View style={styles.flex}>
+                <Field label="City" value={city} onChangeText={setCity} placeholder="Bengaluru" />
+              </View>
+              <View style={styles.flex}>
+                <Field label="State" value={state} onChangeText={setState} placeholder="Karnataka" />
+              </View>
             </View>
-          </View>
-          <Pressable onPress={useMyLocation} style={styles.locate} accessibilityRole="button">
-            <Text style={styles.locateText}>
-              {locating ? 'Reading GPS…' : '📍 Use my current location'}
+            <View style={styles.row}>
+              <View style={styles.flex}>
+                <Field
+                  label="Latitude"
+                  value={latitude}
+                  onChangeText={setLatitude}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.flex}>
+                <Field
+                  label="Longitude"
+                  value={longitude}
+                  onChangeText={setLongitude}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <LocationPicker
+              latitude={latitude}
+              longitude={longitude}
+              onChange={(lat, lng) => {
+                setLatitude(lat);
+                setLongitude(lng);
+              }}
+            />
+            <Button
+              label={locating ? 'Reading GPS…' : 'Use my current location'}
+              icon="locate-outline"
+              variant="tonal"
+              size="small"
+              fullWidth={false}
+              onPress={useMyLocation}
+              loading={locating}
+            />
+          </Card>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader title="Photos" />
+          <Card style={styles.card}>
+            <View style={styles.photoGrid}>
+              {photos.map((photo, index) => (
+                <View key={photo.assetId ?? photo.uri} style={styles.photoTile}>
+                  <ListingImage
+                    uri={photo.uri}
+                    title={title || 'Listing photo'}
+                    style={styles.photo}
+                  />
+                  <Pressable
+                    onPress={() => removePhoto(index)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove photo ${index + 1}`}
+                    hitSlop={8}
+                    style={styles.removePhoto}
+                  >
+                    <Ionicons name="close" size={14} color={colors.white} />
+                  </Pressable>
+                </View>
+              ))}
+              {photos.length < 4 ? (
+                <Pressable
+                  onPress={pickPhotos}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add photos"
+                  android_ripple={{ color: colors.primarySoft }}
+                  style={styles.addPhoto}
+                >
+                  <Ionicons name="add" size={24} color={colors.primary} />
+                  <Text style={styles.addPhotoText}>Add photo</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            <Text style={styles.photoHintText}>
+              {photos.length}/4 selected · JPEG, PNG or WebP, up to 8 MB each. Photos upload when
+              you publish.
             </Text>
-          </Pressable>
+          </Card>
         </View>
 
-        <Field
-          label="Image URLs (comma separated)"
-          value={images}
-          onChangeText={setImages}
-          placeholder="https://…, https://…"
-          autoCapitalize="none"
-        />
-        <Text style={styles.hint}>
-          Paste full https image URLs (comma separated). Title needs 5+ characters,
-          description 20+, price and area must be numbers.
-        </Text>
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Button label="Publish listing" onPress={submit} loading={busy} />
+        <Button
+          label="Publish listing"
+          icon="checkmark-circle-outline"
+          onPress={submit}
+          loading={busy}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -192,20 +323,55 @@ export default function CreateListingScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
+  content: { padding: spacing.xl, paddingBottom: spacing.huge, gap: spacing.xxl },
+  intro: { gap: spacing.sm, paddingTop: spacing.sm },
+  heading: { ...type.h1 },
+  subheading: { ...type.body, color: colors.textMuted, maxWidth: 330 },
+  section: { gap: spacing.md },
+  card: { gap: spacing.lg },
   row: { flexDirection: 'row', gap: spacing.md },
   flex: { flex: 1 },
-  locationBox: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  photoTile: {
+    width: 88,
+    height: 88,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceAlt,
   },
-  label: { fontSize: 13, fontWeight: '600', color: colors.textMuted },
-  locate: { paddingVertical: 6 },
-  locateText: { color: colors.teal, fontWeight: '700' },
-  hint: { fontSize: 12, color: colors.textMuted },
-  error: { color: colors.danger, fontSize: 14 },
+  photo: { width: '100%', height: '100%' },
+  removePhoto: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(12, 22, 16, 0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPhoto: {
+    width: 88,
+    height: 88,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  addPhotoText: { ...type.micro, color: colors.primary },
+  photoHintText: { ...type.caption, fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSoft,
+  },
+  errorText: { ...type.caption, color: colors.danger, flex: 1 },
 });

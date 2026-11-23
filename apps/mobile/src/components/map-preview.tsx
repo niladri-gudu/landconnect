@@ -1,11 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, type } from '@/lib/theme';
 
 /**
  * Lightweight map card. Opens the exact coordinates in OpenStreetMap.
- * Swap this for @maplibre/maplibre-react-native once the Expo dev build
- * is in place — it needs a native module, so it can't run in Expo Go.
+ * The schematic is a map plate, not decoration: one road cross and a pin.
  */
 export function MapPreview({
   latitude,
@@ -27,46 +27,86 @@ export function MapPreview({
       onPress={open}
       accessibilityRole="button"
       accessibilityLabel={`Open map for ${label}`}
-      style={({ pressed }) => [styles.box, pressed && { opacity: 0.85 }]}
+      android_ripple={{ color: colors.primarySoft }}
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.94 }]}
     >
-      <View style={styles.pinWrap}>
-        <Text style={styles.pin}>📍</Text>
+      <View style={styles.plate}>
+        <View style={styles.roadHorizontal} />
+        <View style={styles.roadVertical} />
+        <View style={styles.pin}>
+          <Ionicons name="location" size={20} color={colors.white} />
+        </View>
       </View>
+
       <View style={styles.body}>
-        <Text style={styles.label} numberOfLines={1}>
+        <Text style={styles.label} numberOfLines={2}>
           {label}
         </Text>
         <Text style={styles.coords}>
           {latitude.toFixed(5)}, {longitude.toFixed(5)}
         </Text>
-        <Text style={styles.hint}>Open in OpenStreetMap →</Text>
+        <View style={styles.ctaRow}>
+          <Text style={styles.cta}>Open in OpenStreetMap</Text>
+          <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+        </View>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  box: {
+  card: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     gap: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
-  pinWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: radius.md,
-    backgroundColor: colors.bubbleOut,
+  plate: {
+    width: 104,
+    minHeight: 104,
+    backgroundColor: colors.primarySoft,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pin: { fontSize: 24 },
-  body: { flex: 1, gap: 2 },
-  label: { fontSize: 15, fontWeight: '700', color: colors.text },
-  coords: { fontSize: 13, color: colors.textMuted },
-  hint: { fontSize: 12, color: colors.teal, fontWeight: '600' },
+  roadHorizontal: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '55%',
+    height: 7,
+    backgroundColor: colors.surface,
+    opacity: 0.85,
+  },
+  roadVertical: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '38%',
+    width: 5,
+    backgroundColor: colors.surface,
+    opacity: 0.7,
+  },
+  pin: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  body: { flex: 1, paddingVertical: spacing.md, paddingRight: spacing.lg, gap: 3 },
+  label: { ...type.bodyStrong, fontSize: 14, lineHeight: 20 },
+  coords: { ...type.caption, fontSize: 12, color: colors.textMuted },
+  ctaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.xs,
+  },
+  cta: { ...type.label, color: colors.primary },
 });

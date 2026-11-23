@@ -1,12 +1,36 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter, type Href } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Redirect, useRouter, type Href } from 'expo-router';
+import {
+  Alert,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import type { ListingStatus } from '@landconnect/shared';
 
 import { ListingCard } from '@/components/listing-card';
-import { Button, EmptyState, Loading } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  EmptyState,
+  ErrorState,
+  ListingCardSkeleton,
+} from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, type } from '@/lib/theme';
+
+function statusTone(status: ListingStatus): 'green' | 'warning' | 'neutral' {
+  if (status === 'ACTIVE') return 'green';
+  if (status === 'SOLD') return 'warning';
+  return 'neutral';
+}
 
 export default function MyListingsScreen() {
   const { user } = useAuth();
@@ -28,67 +52,151 @@ export default function MyListingsScreen() {
     },
   });
 
-  if (!canSell) {
-    return (
-      <View style={styles.screen}>
-        <EmptyState
-          title="Buyers browse, sellers list"
-          body="Your account is a Buyer account. Register as a Seller or Broker to publish land listings."
-        />
-      </View>
+  if (!canSell) return <Redirect href={'/(tabs)' as Href} />;
+
+  function confirmRemove(id: string, title: string) {
+    Alert.alert(
+      'Remove listing?',
+      `“${title}” will be permanently removed from LandConnect.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => remove.mutate(id),
+        },
+      ],
     );
   }
 
-  if (mine.isLoading) return <Loading />;
+  const items = mine.data?.items ?? [];
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top']}>
       <FlatList
-        data={mine.data?.items ?? []}
+        data={items}
         keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <Button
-              label="+ List new land"
-              onPress={() => router.push('/listing/create' as Href)}
-            />
-          </View>
-        }
-        ListEmptyComponent={
-          <EmptyState
-            title="No listings yet"
-            body="Publish your first plot — add photos, price, size and an exact location."
+        refreshControl={
+          <RefreshControl
+            refreshing={mine.isRefetching}
+            onRefresh={() => {
+              void mine.refetch();
+            }}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={styles.headerRow}>
+              <View style={styles.headerCopy}>
+                <Text style={styles.heading}>My listings</Text>
+                <Text style={styles.subheading}>
+                  {items.length > 0
+                    ? `${items.length} ${items.length === 1 ? 'plot' : 'plots'} published`
+                    : 'Publish and manage the land you list.'}
+                </Text>
+              </View>
+              <Button
+                label="List land"
+                icon="add"
+                variant="tonal"
+                size="small"
+                fullWidth={false}
+                onPress={() => router.push('/listing/create' as Href)}
+              />
+            </View>
+          </View>
+        }
+        ItemSeparatorComponent={() => <View style={{ height: spacing.xl }} />}
+        ListEmptyComponent={
+          mine.isLoading ? (
+            <View style={{ gap: spacing.lg }}>
+              <ListingCardSkeleton />
+              <ListingCardSkeleton />
+            </View>
+          ) : mine.isError ? (
+            <ErrorState
+              message={mine.error instanceof Error ? mine.error.message : undefined}
+              onRetry={() => {
+                void mine.refetch();
+              }}
+            />
+          ) : (
+            <EmptyState
+              icon="business-outline"
+              title="No listings yet"
+              body="Publish your first plot with photos, price, size and an exact location."
+              actionLabel="List your first plot"
+              onAction={() => router.push('/listing/create' as Href)}
+            />
+          )
+        }
         renderItem={({ item }) => (
-          <View style={{ gap: spacing.sm }}>
+          <View>
             <ListingCard listing={item} />
-            <Pressable
-              onPress={() => remove.mutate(item.id)}
-              accessibilityRole="button"
-              style={styles.remove}
-            >
-              <Text style={styles.removeText}>Remove listing</Text>
-            </Pressable>
+            <View style={styles.cardActions}>
+              <Badge
+                label={
+                  item.status === 'ACTIVE'
+                    ? 'Active'
+                    : item.status === 'SOLD'
+                      ? 'Sold'
+                      : 'Archived'
+                }
+                tone={statusTone(item.status)}
+              />
+              <Pressable
+                onPress={() => confirmRemove(item.id, item.title)}
+                disabled={remove.isPending}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${item.title}`}
+                style={({ pressed }) => [
+                  styles.removeButton,
+                  pressed && { opacity: 0.7 },
+                  remove.isPending && { opacity: 0.5 },
+                ]}
+              >
+                <Ionicons name="trash-outline" size={15} color={colors.danger} />
+                <Text style={styles.removeText}>Remove</Text>
+              </Pressable>
+            </View>
           </View>
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  list: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  header: { marginBottom: spacing.lg },
-  remove: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-    backgroundColor: '#FDECEA',
+  list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxxl },
+  header: { paddingTop: spacing.sm, paddingBottom: spacing.xxl },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  removeText: { color: colors.danger, fontSize: 12, fontWeight: '700' },
+  headerCopy: { flex: 1, gap: spacing.sm },
+  heading: { ...type.display, color: colors.text },
+  subheading: { ...type.body, color: colors.textMuted },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xs,
+    paddingTop: spacing.sm,
+  },
+  removeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 36,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.pill,
+  },
+  removeText: { ...type.label, color: colors.danger },
 });

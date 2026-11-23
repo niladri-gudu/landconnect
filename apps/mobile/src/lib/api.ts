@@ -150,6 +150,81 @@ function messageFromError(
   return fallback;
 }
 
+export interface LocalImage {
+  uri: string;
+  name: string;
+  type: string;
+}
+
+/**
+ * Multipart upload. Uses XMLHttpRequest instead of fetch: Expo SDK 58 swaps in
+ * the Winter fetch, which rejects React Native's `{ uri, name, type }` file
+ * parts ("Unsupported FormDataPart implementation"). RN's XHR still supports
+ * them.
+ */
+async function uploadImages(
+  files: LocalImage[],
+  allowRefresh = true,
+): Promise<{ urls: string[] }> {
+  const token = getAccessToken();
+
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    for (const file of files) form.append('files', file as unknown as Blob);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_URL}/api/uploads`);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.timeout = 60_000;
+
+    xhr.onload = () => {
+      void (async () => {
+        if (xhr.status === 401 && allowRefresh && getSession()) {
+          try {
+            await refreshSession();
+            resolve(await uploadImages(files, false));
+          } catch (error) {
+            reject(error);
+          }
+          return;
+        }
+
+        let data: { error?: string; details?: unknown; urls?: string[] } | null = null;
+        if (xhr.responseText) {
+          try {
+            data = JSON.parse(xhr.responseText) as {
+              error?: string;
+              details?: unknown;
+              urls?: string[];
+            };
+          } catch {
+            data = { error: xhr.responseText.slice(0, 200) };
+          }
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data as { urls: string[] });
+          return;
+        }
+        reject(
+          new ApiError(messageFromError(data, xhr.statusText), xhr.status, data?.details),
+        );
+      })();
+    };
+    xhr.onerror = () =>
+      reject(
+        new ApiError(
+          `Cannot reach the API at ${API_URL}. Check your connection and EXPO_PUBLIC_API_URL.`,
+          0,
+        ),
+      );
+    xhr.ontimeout = () =>
+      reject(new ApiError('Photo upload timed out. Try fewer or smaller photos.', 408));
+
+    xhr.send(form);
+  });
+}
+
 function toQueryString(query: Record<string, string | number | undefined>): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
@@ -208,6 +283,9 @@ export const api = {
         method: 'POST',
         body: { body, type: 'TEXT' },
       }),
+  },
+  uploads: {
+    images: (files: LocalImage[]) => uploadImages(files),
   },
   calls: {
     create: (input: CallCreateInput) =>

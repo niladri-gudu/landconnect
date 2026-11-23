@@ -1,77 +1,221 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import {
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
+  Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ListingCard } from '@/components/listing-card';
-import { EmptyState, Loading } from '@/components/ui';
+import {
+  Avatar,
+  EmptyState,
+  ErrorState,
+  ListingCardSkeleton,
+} from '@/components/ui';
 import { api } from '@/lib/api';
-import { colors, radius, spacing } from '@/lib/theme';
+import { useAuth } from '@/lib/auth';
+import { useDebouncedValue } from '@/lib/hooks';
+import { colors, radius, spacing, type } from '@/lib/theme';
 
 export default function CommunityScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
+
   const listings = useQuery({
-    queryKey: ['listings', search],
+    queryKey: ['listings', debouncedSearch],
     queryFn: () =>
-      api.listings.list({ q: search.trim() || undefined, pageSize: 25 }),
+      api.listings.list({
+        q: debouncedSearch.trim() || undefined,
+        pageSize: 25,
+      }),
+    placeholderData: (previous) => previous,
   });
 
-  if (listings.isLoading) return <Loading />;
+  const items = listings.data?.items ?? [];
+  const total = listings.data?.total ?? 0;
+  const isSearching = debouncedSearch.trim().length > 0;
+  const showSkeletons = listings.isLoading && !listings.data;
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.searchWrap}>
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search by city, title or keyword"
-          placeholderTextColor={colors.textMuted}
-          style={styles.search}
-          returnKeyType="search"
-        />
-      </View>
-
+    <SafeAreaView style={styles.screen} edges={['top']}>
       <FlatList
-        data={listings.data?.items ?? []}
+        data={items}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ListingCard listing={item} />}
-        contentContainerStyle={styles.list}
+        renderItem={({ item, index }) => <ListingCard listing={item} featured={index === 0} />}
         ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
+        contentContainerStyle={styles.list}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={listings.isRefetching}
+            refreshing={listings.isRefetching && !showSkeletons}
             onRefresh={() => {
               void listings.refetch();
             }}
-            tintColor={colors.accent}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
+        }
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={styles.topBar}>
+              <View style={styles.brand}>
+                <View style={styles.brandMark}>
+                  <Text style={styles.brandMarkText}>LC</Text>
+                </View>
+                <Text style={styles.brandName}>LandConnect</Text>
+              </View>
+              <Pressable
+                onPress={() => router.push('/(tabs)/profile' as Href)}
+                accessibilityRole="button"
+                accessibilityLabel="Open your profile"
+                hitSlop={8}
+              >
+                <Avatar name={user?.name ?? 'You'} uri={user?.avatarUrl} size={38} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.heading}>Find your ground</Text>
+            <Text style={styles.subheading}>
+              Land from owners and brokers, with every conversation kept private.
+            </Text>
+
+            <View style={styles.searchShell}>
+              <Ionicons name="search-outline" size={19} color={colors.textMuted} />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search city, title or keyword"
+                placeholderTextColor={colors.textFaint}
+                selectionColor={colors.primary}
+                returnKeyType="search"
+                style={styles.searchInput}
+              />
+              {search.length > 0 ? (
+                <Pressable
+                  onPress={() => setSearch('')}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                >
+                  <Ionicons name="close-circle" size={19} color={colors.textFaint} />
+                </Pressable>
+              ) : null}
+            </View>
+
+            <View style={styles.resultRow}>
+              <Text style={styles.resultCount}>
+                {listings.data
+                  ? `${total} ${total === 1 ? 'plot' : 'plots'}`
+                  : 'Plots across India'}
+              </Text>
+              {items.length > 0 ? <Text style={styles.sortLabel}>Newest first</Text> : null}
+            </View>
+          </View>
         }
         ListEmptyComponent={
-          <EmptyState
-            title="No land listings yet"
-            body="Sellers and brokers can publish the first listing from the My Listings tab."
-          />
+          showSkeletons ? (
+            <View style={{ gap: spacing.lg }}>
+              <ListingCardSkeleton />
+              <ListingCardSkeleton />
+              <ListingCardSkeleton />
+            </View>
+          ) : listings.isError ? (
+            <ErrorState
+              message={
+                listings.error instanceof Error ? listings.error.message : undefined
+              }
+              onRetry={() => {
+                void listings.refetch();
+              }}
+            />
+          ) : isSearching ? (
+            <EmptyState
+              icon="search-outline"
+              title="No land matches"
+              body={`Nothing found for “${debouncedSearch.trim()}”. Try a city or a shorter keyword.`}
+              actionLabel="Clear search"
+              onAction={() => setSearch('')}
+            />
+          ) : (
+            <EmptyState
+              icon="leaf-outline"
+              title="No plots yet"
+              body="Sellers and brokers can publish the first listing from the My Listings tab."
+            />
+          )
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  searchWrap: { padding: spacing.lg, backgroundColor: colors.primary },
-  search: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 11,
-    fontSize: 15,
-    color: colors.text,
+  list: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxxl,
   },
-  list: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  header: { paddingTop: spacing.sm, paddingBottom: spacing.xl },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xxl,
+  },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  brandMark: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandMarkText: { color: colors.white, fontSize: 12, fontWeight: '800', letterSpacing: 0.2 },
+  brandName: { ...type.title, fontSize: 16, color: colors.text },
+  heading: { ...type.display, color: colors.text },
+  subheading: {
+    ...type.body,
+    color: colors.textMuted,
+    maxWidth: 330,
+    marginTop: spacing.sm,
+  },
+  searchShell: {
+    marginTop: spacing.xl,
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+  },
+  searchInput: {
+    ...type.body,
+    flex: 1,
+    color: colors.text,
+    paddingVertical: 0,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xl,
+  },
+  resultCount: { ...type.caption, fontWeight: '600', color: colors.textMuted },
+  sortLabel: { ...type.caption, fontSize: 12, color: colors.textFaint },
 });

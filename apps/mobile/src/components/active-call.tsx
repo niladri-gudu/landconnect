@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalParticipant, useTracks, VideoTrack } from '@livekit/react-native';
 import { Track } from 'livekit-client';
 import { useState } from 'react';
@@ -5,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { CallKind } from '@landconnect/shared';
 
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, type } from '@/lib/theme';
 
 /**
  * Rendered inside <LiveKitRoom>. Reads the live room state so the mute and
@@ -22,7 +23,6 @@ export function ActiveCall({
 }) {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } =
     useLocalParticipant();
-  // Include local tracks so the self-view renders; LiveKit auto-subscribes remote video.
   const tracks = useTracks([Track.Source.Camera]);
   const remoteVideo = tracks.find((track) => !track.participant.isLocal);
   const localVideo = tracks.find((track) => track.participant.isLocal);
@@ -50,14 +50,14 @@ export function ActiveCall({
     <View style={styles.container}>
       <View style={styles.stage}>
         {kind === 'VIDEO' && remoteVideo ? (
-          <VideoTrack
-            trackRef={remoteVideo}
-            style={styles.remoteVideo}
-            objectFit="cover"
-          />
+          <VideoTrack trackRef={remoteVideo} style={styles.remoteVideo} objectFit="cover" />
         ) : (
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{kind === 'VIDEO' ? '📹' : '🎧'}</Text>
+            <Ionicons
+              name={kind === 'VIDEO' ? 'videocam-outline' : 'headset-outline'}
+              size={40}
+              color={colors.white}
+            />
           </View>
         )}
 
@@ -81,18 +81,28 @@ export function ActiveCall({
         <Pressable
           style={[styles.smallCircle, !isMicrophoneEnabled && styles.smallActive]}
           onPress={toggleMic}
+          accessibilityRole="button"
           accessibilityLabel={isMicrophoneEnabled ? 'Mute' : 'Unmute'}
         >
-          <Text style={styles.smallGlyph}>{isMicrophoneEnabled ? '🎙️' : '🔇'}</Text>
+          <Ionicons
+            name={isMicrophoneEnabled ? 'mic-outline' : 'mic-off-outline'}
+            size={24}
+            color={colors.white}
+          />
         </Pressable>
 
         {kind === 'VIDEO' ? (
           <Pressable
             style={[styles.smallCircle, !isCameraEnabled && styles.smallActive]}
             onPress={toggleCamera}
+            accessibilityRole="button"
             accessibilityLabel={isCameraEnabled ? 'Turn camera off' : 'Turn camera on'}
           >
-            <Text style={styles.smallGlyph}>{isCameraEnabled ? '🎥' : '📷'}</Text>
+            <Ionicons
+              name={isCameraEnabled ? 'videocam-outline' : 'videocam-off-outline'}
+              size={24}
+              color={colors.white}
+            />
           </Pressable>
         ) : null}
       </View>
@@ -101,9 +111,10 @@ export function ActiveCall({
         style={[styles.circle, styles.reject]}
         onPress={onEnd}
         disabled={busy}
+        accessibilityRole="button"
         accessibilityLabel="End call"
       >
-        <Text style={styles.circleGlyph}>⏹</Text>
+        <Ionicons name="call" size={28} color={colors.white} />
       </Pressable>
     </View>
   );
@@ -130,40 +141,37 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.lg,
     right: spacing.lg,
-    width: 100,
+    width: 102,
     height: 150,
     borderRadius: radius.md,
     overflow: 'hidden',
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: colors.teal,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { color: colors.white, fontSize: 44 },
-  status: { color: '#B8D8D2', fontSize: 14 },
-  error: { color: '#FFB4AB', textAlign: 'center', fontSize: 13 },
+  status: { ...type.caption, color: 'rgba(255,255,255,0.7)' },
+  error: { ...type.caption, fontSize: 12, color: '#FFB4AB', textAlign: 'center' },
   controlRow: { flexDirection: 'row', gap: spacing.xl },
   smallCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#0B4A41',
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  smallActive: { backgroundColor: '#155E53' },
-  smallGlyph: { fontSize: 22 },
+  smallActive: { backgroundColor: 'rgba(255,180,171,0.22)' },
   circle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 74,
+    height: 74,
+    borderRadius: 37,
     alignItems: 'center',
     justifyContent: 'center',
   },
   reject: { backgroundColor: colors.danger },
-  circleGlyph: { color: colors.white, fontSize: 28, fontWeight: '800' },
 });

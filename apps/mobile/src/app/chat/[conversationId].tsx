@@ -1,7 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -11,7 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   SOCKET_EVENTS,
@@ -21,16 +24,21 @@ import {
   type MessageReceiptDto,
 } from '@landconnect/shared';
 
-import { Loading } from '@/components/ui';
+import { Avatar, IconButton, Loading } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { formatDayLabel, formatTime, roleLabel } from '@/lib/format';
 import { getSocket, joinConversation, leaveConversation } from '@/lib/socket';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, type } from '@/lib/theme';
 
 type ChatMessage = MessageDto & {
   pending?: boolean;
   failed?: boolean;
 };
+
+type ChatRow =
+  | { kind: 'day'; key: string; label: string }
+  | { kind: 'message'; key: string; message: ChatMessage };
 
 function mergeMessages(current: ChatMessage[], incoming: MessageDto[]): ChatMessage[] {
   const byId = new Map<string, ChatMessage>();
@@ -56,13 +64,6 @@ function mergeMessages(current: ChatMessage[], incoming: MessageDto[]): ChatMess
   return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  return `${String(date.getHours()).padStart(2, '0')}:${String(
-    date.getMinutes(),
-  ).padStart(2, '0')}`;
-}
-
 function MessageMeta({
   message,
   mine,
@@ -72,30 +73,42 @@ function MessageMeta({
   mine: boolean;
   onRetry: () => void;
 }) {
-  const time = formatTime(message.createdAt);
-
   if (message.pending) {
-    return <Text style={styles.metaMuted}>{time} · Sending…</Text>;
+    return (
+      <View style={styles.metaRow}>
+        <ActivityIndicator size={10} color={colors.textMuted} />
+        <Text style={styles.metaText}>Sending…</Text>
+      </View>
+    );
   }
+
   if (message.failed) {
     return (
-      <Pressable onPress={onRetry} accessibilityRole="button">
-        <Text style={styles.metaFailed}>{time} · Tap to retry</Text>
+      <Pressable onPress={onRetry} accessibilityRole="button" hitSlop={6}>
+        <View style={styles.metaRow}>
+          <Ionicons name="alert-circle" size={12} color={colors.danger} />
+          <Text style={[styles.metaText, { color: colors.danger, fontWeight: '700' }]}>
+            Tap to retry
+          </Text>
+        </View>
       </Pressable>
     );
   }
+
   if (!mine) {
-    return <Text style={styles.metaMuted}>{time}</Text>;
+    return <Text style={[styles.metaText, styles.metaAlone]}>{formatTime(message.createdAt)}</Text>;
   }
 
   const read = Boolean(message.readAt);
-  const delivered = Boolean(message.deliveredAt);
+  const delivered = Boolean(message.deliveredAt) || read;
   return (
     <View style={styles.metaRow}>
-      <Text style={styles.metaMuted}>{time}</Text>
-      <Text style={[styles.tick, read ? styles.tickRead : styles.tickMuted]}>
-        {delivered || read ? '✓✓' : '✓'}
-      </Text>
+      <Text style={styles.metaText}>{formatTime(message.createdAt)}</Text>
+      <Ionicons
+        name={delivered ? 'checkmark-done' : 'checkmark'}
+        size={14}
+        color={read ? colors.tickRead : colors.tickMuted}
+      />
     </View>
   );
 }
@@ -106,7 +119,7 @@ export default function ChatScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const listRef = useRef<FlatList<ChatMessage>>(null);
+  const listRef = useRef<FlatList<ChatRow>>(null);
   const readTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -125,7 +138,7 @@ export default function ChatScreen() {
     enabled: Boolean(conversationId),
   });
 
-  const other = conversation.data?.participants.find((p) => p.id !== user?.id);
+  const other = conversation.data?.participants.find((participant) => participant.id !== user?.id);
   const title = other?.name ?? 'Chat';
 
   // Merge, never replace: a refetch must not wipe a socket-delivered or
@@ -214,6 +227,24 @@ export default function ChatScreen() {
     };
   }, [accessToken, conversationId, queryClient, user?.id]);
 
+  const rows = useMemo(() => {
+    const next: ChatRow[] = [];
+    let lastDay = '';
+    for (const message of messages) {
+      const day = new Date(message.createdAt).toDateString();
+      if (day !== lastDay) {
+        next.push({
+          kind: 'day',
+          key: `day-${day}`,
+          label: formatDayLabel(message.createdAt),
+        });
+        lastDay = day;
+      }
+      next.push({ kind: 'message', key: message.id, message });
+    }
+    return next;
+  }, [messages]);
+
   async function deliver(body: string, clientId: string) {
     if (!conversationId) return;
     try {
@@ -284,146 +315,260 @@ export default function ChatScreen() {
   if (history.isLoading && messages.length === 0) return <Loading />;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <Stack.Screen
-        options={{
-          title,
-          headerTitleStyle: { fontWeight: '700' },
-          headerRight: () => (
-            <View style={styles.callButtons}>
-              <Pressable
-                accessibilityLabel="Start audio call"
-                onPress={() => startCall('AUDIO')}
-                disabled={startingCall !== null}
-              >
-                <Text style={styles.callGlyph}>📞</Text>
-              </Pressable>
-              <Pressable
-                accessibilityLabel="Start video call"
-                onPress={() => startCall('VIDEO')}
-                disabled={startingCall !== null}
-              >
-                <Text style={styles.callGlyph}>📹</Text>
-              </Pressable>
-            </View>
-          ),
-        }}
-      />
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar style="dark" />
 
-      <FlatList
-        ref={listRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        keyboardShouldPersistTaps="handled"
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-        renderItem={({ item }) => {
-          const mine = item.senderId === user?.id || item.senderId === 'me';
-          return (
-            <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-              <Text style={styles.bubbleText}>{item.body}</Text>
-              <MessageMeta message={item} mine={mine} onRetry={() => retry(item)} />
-            </View>
-          );
-        }}
-      />
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <View
-        style={[
-          styles.composer,
-          { paddingBottom: Math.max(insets.bottom, spacing.sm) },
-        ]}
-      >
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Message"
-          placeholderTextColor={colors.textMuted}
-          style={styles.input}
-          multiline
+      <View style={styles.header}>
+        <IconButton
+          name="chevron-back"
+          onPress={() => router.back()}
+          accessibilityLabel="Go back"
+          variant="plain"
+          size={44}
         />
-        <Pressable
-          onPress={send}
-          disabled={!draft.trim()}
-          accessibilityRole="button"
-          style={[styles.send, !draft.trim() && { opacity: 0.5 }]}
-        >
-          <Text style={styles.sendText}>➤</Text>
-        </Pressable>
+        <Avatar name={title} uri={other?.avatarUrl} size={38} />
+        <View style={styles.headerCopy}>
+          <Text numberOfLines={1} style={styles.headerName}>
+            {title}
+          </Text>
+          <Text numberOfLines={1} style={styles.headerMeta}>
+            {other ? roleLabel(other.role) : 'LandConnect chat'}
+          </Text>
+        </View>
+        <IconButton
+          name="call-outline"
+          onPress={() => startCall('AUDIO')}
+          accessibilityLabel="Start audio call"
+          variant="plain"
+          size={44}
+          disabled={startingCall !== null}
+        />
+        <IconButton
+          name="videocam-outline"
+          onPress={() => startCall('VIDEO')}
+          accessibilityLabel="Start video call"
+          variant="plain"
+          size={44}
+          disabled={startingCall !== null}
+        />
       </View>
-    </KeyboardAvoidingView>
+
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
+        <FlatList
+          ref={listRef}
+          data={rows}
+          keyExtractor={(row) => row.key}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          renderItem={({ item }) => {
+            if (item.kind === 'day') {
+              return (
+                <View style={styles.dayRow}>
+                  <Text style={styles.dayLabel}>{item.label}</Text>
+                </View>
+              );
+            }
+
+            const message = item.message;
+            const mine = message.senderId === user?.id || message.senderId === 'me';
+            return (
+              <View style={styles.bubbleRow}>
+                <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
+                  <Text style={styles.bubbleText}>{message.body}</Text>
+                  <MessageMeta
+                    message={message}
+                    mine={mine}
+                    onRetry={() => retry(message)}
+                  />
+                </View>
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyChat}>
+              <View style={styles.emptyChatIcon}>
+                <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.primary} />
+              </View>
+              <Text style={styles.emptyChatTitle}>Say hello</Text>
+              <Text style={styles.emptyChatBody}>
+                Messages stay inside LandConnect. Your phone number is never shared.
+              </Text>
+            </View>
+          }
+        />
+
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+
+        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+          <View style={styles.inputShell}>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Message"
+              placeholderTextColor={colors.textFaint}
+              selectionColor={colors.primary}
+              style={styles.input}
+              multiline
+            />
+          </View>
+          <Pressable
+            onPress={send}
+            disabled={!draft.trim()}
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+            accessibilityState={{ disabled: !draft.trim() }}
+            style={({ pressed }) => [
+              styles.send,
+              !draft.trim() && styles.sendDisabled,
+              pressed && draft.trim() ? { opacity: 0.85 } : null,
+            ]}
+          >
+            <Ionicons name="arrow-up" size={20} color={colors.white} />
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  callButtons: { flexDirection: 'row', gap: spacing.md, paddingRight: spacing.sm },
-  callGlyph: { fontSize: 20 },
-  list: { padding: spacing.md, paddingBottom: spacing.lg, gap: spacing.sm },
+  screen: { flex: 1, backgroundColor: colors.chatBackground },
+  flex: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  headerCopy: { flex: 1, gap: 1, marginLeft: spacing.sm },
+  headerName: { ...type.title, fontSize: 16 },
+  headerMeta: { ...type.caption, fontSize: 12, color: colors.textMuted },
+  list: { paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: 6, flexGrow: 1 },
+  dayRow: { alignItems: 'center', paddingVertical: spacing.sm },
+  dayLabel: {
+    ...type.micro,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+  },
+  bubbleRow: { width: '100%' },
   bubble: {
     maxWidth: '82%',
     paddingHorizontal: spacing.md,
     paddingVertical: 7,
-    borderRadius: radius.md,
+    paddingBottom: 5,
+    borderRadius: radius.lg,
+    gap: 2,
   },
-  bubbleMine: { alignSelf: 'flex-end', backgroundColor: colors.bubbleOut },
-  bubbleTheirs: { alignSelf: 'flex-start', backgroundColor: colors.bubbleIn },
-  bubbleText: { fontSize: 15, color: colors.text, lineHeight: 20 },
+  bubbleMine: {
+    alignSelf: 'flex-end',
+    backgroundColor: colors.bubbleOut,
+    borderBottomRightRadius: 4,
+  },
+  bubbleTheirs: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.bubbleIn,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderBottomLeftRadius: 4,
+  },
+  bubbleText: { ...type.body, fontSize: 15, lineHeight: 21, color: colors.text },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-end',
-    gap: 4,
-    marginTop: 2,
+    gap: 3,
   },
-  metaMuted: {
-    alignSelf: 'flex-end',
-    marginTop: 2,
-    fontSize: 11,
+  metaText: { fontSize: 10.5, lineHeight: 14, color: colors.textMuted },
+  metaAlone: { alignSelf: 'flex-end' },
+  emptyChat: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.huge,
+  },
+  emptyChatIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyChatTitle: { ...type.h2, fontSize: 18 },
+  emptyChatBody: {
+    ...type.caption,
     color: colors.textMuted,
+    textAlign: 'center',
+    maxWidth: 270,
+    lineHeight: 19,
   },
-  metaFailed: {
-    alignSelf: 'flex-end',
-    marginTop: 2,
-    fontSize: 11,
-    color: colors.danger,
-    fontWeight: '600',
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSoft,
   },
-  tick: { fontSize: 12, fontWeight: '700', letterSpacing: -1.5 },
-  tickRead: { color: colors.tickRead },
-  tickMuted: { color: colors.tickMuted },
-  error: { color: colors.danger, paddingHorizontal: spacing.lg, fontSize: 13 },
+  errorText: { ...type.caption, fontSize: 12, color: colors.danger, flex: 1 },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  inputShell: {
+    flex: 1,
+    minHeight: 44,
+    maxHeight: 120,
+    borderRadius: 22,
     backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    justifyContent: 'center',
   },
   input: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 10,
-    fontSize: 15,
-    maxHeight: 120,
+    ...type.body,
     color: colors.text,
+    paddingVertical: spacing.sm,
+    maxHeight: 100,
   },
   send: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendText: { color: colors.white, fontSize: 18, fontWeight: '800' },
+  sendDisabled: { opacity: 0.4 },
 });

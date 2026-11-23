@@ -1,6 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LiveKitRoom } from '@livekit/react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,13 +15,52 @@ import {
 } from '@landconnect/shared';
 
 import { ActiveCall } from '@/components/active-call';
-import { Loading } from '@/components/ui';
+import { Avatar, Loading } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { roleLabel } from '@/lib/format';
 import { getSocket, joinConversation, leaveConversation } from '@/lib/socket';
-import { colors, spacing } from '@/lib/theme';
+import { colors, radius, spacing, type } from '@/lib/theme';
 
 type LivekitSession = NonNullable<CallAnswerDto['livekit']>;
+
+function Control({
+  icon,
+  label,
+  tone,
+  onPress,
+  disabled,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  tone: 'accept' | 'decline' | 'neutral';
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const background =
+    tone === 'accept'
+      ? colors.primary
+      : tone === 'decline'
+        ? colors.danger
+        : 'rgba(255,255,255,0.14)';
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [
+        styles.control,
+        { backgroundColor: background },
+        pressed && { opacity: 0.82 },
+        disabled && { opacity: 0.5 },
+      ]}
+    >
+      <Ionicons name={icon} size={26} color={colors.white} />
+      <Text style={styles.controlLabel}>{label}</Text>
+    </Pressable>
+  );
+}
 
 export default function CallScreen() {
   const { callId } = useLocalSearchParams<{ callId: string }>();
@@ -42,6 +83,14 @@ export default function CallScreen() {
 
   const conversationId: string | undefined = call.data?.conversationId;
   const isInitiator = call.data?.initiatorId === user?.id;
+
+  const conversation = useQuery({
+    queryKey: ['conversation', conversationId],
+    queryFn: () => api.conversations.get(conversationId as string),
+    enabled: Boolean(conversationId),
+  });
+  const other = conversation.data?.participants.find((participant) => participant.id !== user?.id);
+  const title = other?.name ?? 'LandConnect member';
 
   // The callee receives credentials in the answer response; the caller (and
   // any screen opened after acceptance) fetches its own room token.
@@ -130,23 +179,19 @@ export default function CallScreen() {
   const ringing = status === 'RINGING';
   const active = status === 'ACTIVE';
   const kindLabel = data.kind === 'VIDEO' ? 'Video call' : 'Audio call';
+  const statusLabel = ringing
+    ? isInitiator
+      ? 'Calling…'
+      : 'Incoming call'
+    : active
+      ? media
+        ? 'Connected'
+        : 'Connecting media…'
+      : status?.toLowerCase() ?? '';
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.kind}>{kindLabel}</Text>
-        <Text style={styles.status}>
-          {ringing
-            ? isInitiator
-              ? 'Calling…'
-              : 'Incoming call'
-            : active
-              ? media
-                ? 'Connected'
-                : 'Connecting media…'
-              : status?.toLowerCase() ?? ''}
-        </Text>
-      </View>
+      <StatusBar style="light" />
 
       {active && media ? (
         <View style={styles.room}>
@@ -164,89 +209,111 @@ export default function CallScreen() {
         </View>
       ) : (
         <>
-          <View style={styles.stage}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{isInitiator ? 'R' : 'C'}</Text>
+          <View style={styles.top}>
+            <Text style={styles.kind}>{kindLabel}</Text>
+            <View style={styles.statusPill}>
+              <Text style={styles.statusText}>{statusLabel}</Text>
             </View>
-            <Text style={styles.hint}>
-              {active
-                ? 'Connecting audio/video…'
-                : 'No phone numbers are exchanged'}
+          </View>
+
+          <View style={styles.stage}>
+            <Avatar name={title} uri={other?.avatarUrl} size={104} ring />
+            <Text style={styles.name}>{title}</Text>
+            <Text style={styles.role}>
+              {other ? `${roleLabel(other.role)} · ` : ''}LandConnect
             </Text>
+            <View style={styles.lockRow}>
+              <Ionicons name="lock-closed-outline" size={14} color="rgba(255,255,255,0.6)" />
+              <Text style={styles.hint}>No phone numbers are exchanged</Text>
+            </View>
           </View>
 
           {ringing && !isInitiator ? (
-            <View style={styles.ringActions}>
-              <Pressable
-                style={[styles.circle, styles.reject]}
+            <View style={styles.controls}>
+              <Control
+                icon="close"
+                label="Decline"
+                tone="decline"
                 onPress={() => answer(false)}
                 disabled={busy}
-                accessibilityLabel="Reject call"
-              >
-                <Text style={styles.circleGlyph}>✕</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.circle, styles.accept]}
+              />
+              <Control
+                icon="call"
+                label="Accept"
+                tone="accept"
                 onPress={() => answer(true)}
                 disabled={busy}
-                accessibilityLabel="Accept call"
-              >
-                <Text style={styles.circleGlyph}>✓</Text>
-              </Pressable>
+              />
             </View>
           ) : (
-            <View style={styles.activeControls}>
-              <Pressable
-                style={[styles.circle, styles.reject]}
+            <View style={styles.controls}>
+              <Control
+                icon="call"
+                label={active ? 'End call' : 'Cancel'}
+                tone="decline"
                 onPress={endCall}
                 disabled={busy}
-                accessibilityLabel={active ? 'End call' : 'Cancel call'}
-              >
-                <Text style={styles.circleGlyph}>{active ? '⏹' : '✕'}</Text>
-              </Pressable>
+              />
             </View>
           )}
         </>
       )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.error}>
+          <Ionicons name="alert-circle-outline" size={16} color="#FFB4AB" />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.primaryDark, padding: spacing.xl },
-  header: { alignItems: 'center', gap: 6, paddingTop: spacing.xl },
-  kind: { color: colors.white, fontSize: 24, fontWeight: '800' },
-  status: { color: '#B8D8D2', fontSize: 15 },
-  stage: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  room: { flex: 1, width: '100%' },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: colors.teal,
-    alignItems: 'center',
-    justifyContent: 'center',
+  room: { flex: 1 },
+  top: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.md },
+  kind: { ...type.label, color: 'rgba(255,255,255,0.66)', textTransform: 'uppercase' },
+  statusPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  avatarText: { color: colors.white, fontSize: 48, fontWeight: '800' },
-  hint: { color: '#B8D8D2', fontSize: 13, textAlign: 'center', maxWidth: 280 },
-  error: { color: '#FFB4AB', textAlign: 'center', marginTop: spacing.md },
-  ringActions: {
+  statusText: { ...type.caption, fontSize: 12, color: colors.white },
+  stage: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  name: { ...type.h1, color: colors.white, marginTop: spacing.md },
+  role: { ...type.caption, color: 'rgba(255,255,255,0.66)' },
+  lockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: spacing.lg,
+  },
+  hint: { ...type.caption, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  controls: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: spacing.xxl,
+    gap: spacing.huge,
     paddingBottom: spacing.xl,
   },
-  activeControls: { alignItems: 'center', gap: spacing.xl, paddingBottom: spacing.xl },
-  circle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  control: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 1,
   },
-  reject: { backgroundColor: colors.danger },
-  accept: { backgroundColor: colors.accent },
-  circleGlyph: { color: colors.white, fontSize: 28, fontWeight: '800' },
+  controlLabel: { color: colors.white, fontSize: 10, fontWeight: '600' },
+  error: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,180,171,0.12)',
+  },
+  errorText: { ...type.caption, fontSize: 12, color: '#FFB4AB', flex: 1 },
 });

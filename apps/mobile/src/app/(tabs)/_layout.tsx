@@ -1,50 +1,75 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { StyleSheet, type ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuth } from '@/lib/auth';
 import { colors } from '@/lib/theme';
 
-function Icon({ glyph, focused }: { glyph: string; focused: boolean }) {
-  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.55 }}>{glyph}</Text>;
+type IconName = keyof typeof Ionicons.glyphMap;
+
+function tabIcon(active: IconName, inactive: IconName) {
+  return ({ focused, color }: { focused: boolean; color: ColorValue }) => (
+    <Ionicons
+      name={focused ? active : inactive}
+      size={23}
+      color={typeof color === 'string' ? color : colors.textFaint}
+    />
+  );
 }
 
 export default function TabsLayout() {
+  const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const canSell = user?.role === 'SELLER' || user?.role === 'BROKER';
+
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.primary },
-        headerTintColor: colors.white,
-        headerTitleStyle: { fontWeight: '700' },
-        tabBarActiveTintColor: colors.teal,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { backgroundColor: colors.surface },
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textFaint,
+        tabBarHideOnKeyboard: true,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+          height: 62 + insets.bottom,
+          paddingTop: 7,
+          paddingBottom: insets.bottom,
+        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 1 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Community',
-          tabBarIcon: ({ focused }) => <Icon glyph="🏘️" focused={focused} />,
+          title: 'Explore',
+          tabBarIcon: tabIcon('compass', 'compass-outline'),
         }}
       />
       <Tabs.Screen
         name="listings"
         options={{
-          title: 'My Listings',
-          tabBarIcon: ({ focused }) => <Icon glyph="📋" focused={focused} />,
+          title: 'Listings',
+          // Buyers never see seller tooling. The route also redirects, so a
+          // deep link cannot expose it.
+          href: canSell ? undefined : null,
+          tabBarIcon: tabIcon('business', 'business-outline'),
         }}
       />
       <Tabs.Screen
         name="messages"
         options={{
           title: 'Messages',
-          tabBarIcon: ({ focused }) => <Icon glyph="💬" focused={focused} />,
+          tabBarIcon: tabIcon('chatbubbles', 'chatbubbles-outline'),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ focused }) => <Icon glyph="👤" focused={focused} />,
+          tabBarIcon: tabIcon('person', 'person-outline'),
         }}
       />
     </Tabs>

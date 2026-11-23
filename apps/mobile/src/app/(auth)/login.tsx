@@ -1,4 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Link, useRouter, type Href } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -12,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Field } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, radius, spacing, type } from '@/lib/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -37,22 +39,32 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
+      <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
       >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.hero}>
-            <View style={styles.logo}>
-              <Text style={styles.logoText}>LC</Text>
+            <View style={styles.brandMark}>
+              <Text style={styles.brandMarkText}>LC</Text>
             </View>
-            <Text style={styles.title}>LandConnect</Text>
-            <Text style={styles.subtitle}>
-              Discover land. Talk directly. No numbers exchanged.
+            <Text style={styles.brandName}>LandConnect</Text>
+            <Text style={styles.tagline}>
+              Find land. Talk directly. Keep your number private.
             </Text>
           </View>
 
-          <View style={styles.form}>
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Welcome back</Text>
+              <Text style={styles.cardBody}>Sign in to keep exploring land.</Text>
+            </View>
+
             <Field
               label="Email"
               value={email}
@@ -61,16 +73,27 @@ export default function LoginScreen() {
               keyboardType="email-address"
               autoComplete="email"
               placeholder="you@example.com"
+              icon="mail-outline"
             />
             <Field
               label="Password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              placeholder="At least 8 characters"
+              autoComplete="current-password"
+              placeholder="Your password"
+              icon="lock-closed-outline"
             />
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            {error ? (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle-outline" size={17} color={colors.danger} />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
             <Button label="Sign in" onPress={submit} loading={busy} />
+
             <Text style={styles.switch}>
               New here?{' '}
               <Link href={'/(auth)/register' as Href} style={styles.link}>
@@ -78,6 +101,8 @@ export default function LoginScreen() {
               </Link>
             </Text>
           </View>
+
+          <Text style={styles.footer}>Private chat and calling, inside one app.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -85,34 +110,59 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.primary },
+  screen: { flex: 1, backgroundColor: colors.primaryDark },
   flex: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.xxl },
+  content: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: spacing.xl,
+    paddingVertical: spacing.xxxl,
+    gap: spacing.xxl,
+  },
   hero: { alignItems: 'center', gap: spacing.sm },
-  logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.accent,
+  brandMark: {
+    width: 62,
+    height: 62,
+    borderRadius: 19,
+    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  logoText: { color: colors.primaryDark, fontSize: 26, fontWeight: '800' },
-  title: { color: colors.white, fontSize: 32, fontWeight: '800' },
-  subtitle: {
-    color: '#B8D8D2',
-    fontSize: 15,
+  brandMarkText: { color: colors.white, fontSize: 22, fontWeight: '800', letterSpacing: 0.4 },
+  brandName: { ...type.display, color: colors.white },
+  tagline: {
+    ...type.body,
+    color: 'rgba(255,255,255,0.72)',
     textAlign: 'center',
     maxWidth: 280,
   },
-  form: {
+  card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
+    borderRadius: radius.xxl,
+    padding: spacing.xxl,
     gap: spacing.lg,
   },
-  error: { color: colors.danger, fontSize: 14 },
-  switch: { textAlign: 'center', color: colors.textMuted, fontSize: 14 },
-  link: { color: colors.teal, fontWeight: '700' },
+  cardHeader: { gap: spacing.xs, marginBottom: spacing.xs },
+  cardTitle: { ...type.h1, fontSize: 23 },
+  cardBody: { ...type.caption, color: colors.textMuted },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSoft,
+  },
+  errorText: { ...type.caption, color: colors.danger, flex: 1 },
+  switch: { textAlign: 'center', ...type.caption, color: colors.textMuted },
+  link: { color: colors.primary, fontWeight: '700' },
+  footer: {
+    ...type.caption,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center',
+  },
 });

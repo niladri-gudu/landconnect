@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 
 import { IncomingCallHost } from '@/components/incoming-call';
 import { AuthProvider } from '@/lib/auth';
-import { colors } from '@/lib/theme';
+import { colors, type } from '@/lib/theme';
 
 // WebRTC globals must exist before any LiveKit room is created. Kept off web,
 // where the native WebRTC module is unavailable.
@@ -24,24 +24,29 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <Stack
           screenOptions={{
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: colors.white,
-            headerTitleStyle: { fontWeight: '700' },
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+            headerTitleStyle: { ...type.title, fontSize: 17 },
+            headerShadowVisible: false,
             contentStyle: { backgroundColor: colors.background },
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="listing/[id]" options={{ title: 'Listing' }} />
+          <Stack.Screen name="listing/[id]" options={{ headerShown: false }} />
           <Stack.Screen
             name="listing/create"
-            options={{ title: 'List your land', presentation: 'modal' }}
+            options={{
+              title: 'List your land',
+              presentation: 'modal',
+              contentStyle: { backgroundColor: colors.background },
+            }}
           />
-          <Stack.Screen name="chat/[conversationId]" options={{ title: 'Chat' }} />
+          <Stack.Screen name="chat/[conversationId]" options={{ headerShown: false }} />
           <Stack.Screen name="call/[callId]" options={{ headerShown: false }} />
         </Stack>
         <IncomingCallHost />
