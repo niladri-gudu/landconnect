@@ -354,6 +354,8 @@ Cannot message yourself (400). Both listing and participant must exist (404).
 
 Receiver is derived as the other participant. Creates a `CallSession` with status `RINGING` and
 a unique `roomName`. Emits `call:incoming` to `user:<receiverId>` and `conversation:<id>`.
+Every call payload embeds `initiator` and `receiver` summaries so clients can render identity
+without a second request.
 
 **201**
 ```json
@@ -362,6 +364,18 @@ a unique `roomName`. Emits `call:incoming` to `user:<receiverId>` and `conversat
   "conversationId": "uuid",
   "initiatorId": "uuid",
   "receiverId": "uuid",
+  "initiator": {
+    "id": "uuid",
+    "name": "Asha Buyer",
+    "role": "BUYER",
+    "avatarUrl": null
+  },
+  "receiver": {
+    "id": "uuid",
+    "name": "Ravi Seller",
+    "role": "SELLER",
+    "avatarUrl": null
+  },
   "kind": "AUDIO",
   "status": "RINGING",
   "roomName": "landconnect-<uuid>",

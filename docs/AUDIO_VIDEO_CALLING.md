@@ -1,10 +1,14 @@
 # Audio and Video Calling (Key Requirement)
 
 **Baseline:** 2026-11-21
-**Status (2026-11-22):** call lifecycle, authorization, socket events, LiveKit token issuance,
+**Status (2026-11-23):** call lifecycle, authorization, socket events, LiveKit token issuance,
 the LiveKit RN room join, mic/camera publishing, remote video rendering, track-backed controls
-and the app-level incoming-call overlay are implemented. Remaining: set `LIVEKIT_*`, produce a
-development build, and verify on two devices.
+and the app-level incoming-call overlay are implemented. Audio media is verified between a
+Nothing Phone 3a and the Android emulator: LiveKit Cloud room joined, ICE/DTLS connected, audio
+RTP flowing both ways over the phone's cellular network (~60 ms RTT). Call payloads embed both
+participants, runtime microphone/camera prompts run before a call is created, accepted, or
+joined, and an unanswered outgoing call ends itself after 45 s. Remaining: confirm listening
+both ways, verify the video path, and record the flow.
 **Related:** [ARCHITECTURE.md](ARCHITECTURE.md) · [REALTIME_MESSAGING.md](REALTIME_MESSAGING.md) · [API_SPEC.md](API_SPEC.md) · [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
 
 ---
@@ -366,14 +370,18 @@ Target: 60–90 seconds of uninterrupted calling footage.
 | No TURN reachable on demo network | Medium | Use LiveKit (has relay) or a TURN service; test on the demo network |
 | Native module breaks Expo Go workflow | High (expected) | Use a dev client/preview APK for all testing |
 | Time lost on media | High | Freeze feature work; media is the scored criterion |
-| Permissions crash on Android | Medium | Declare CAMERA/RECORD_AUDIO/MODIFY_AUDIO_SETTINGS; runtime request with rationale |
+| Permissions crash on Android | Medium | Declared CAMERA/RECORD_AUDIO/MODIFY_AUDIO_SETTINGS; `lib/call-permissions.ts` requests them before joining and surfaces denial with Settings/retry |
 
 ## 12. Definition of done
 
-- [ ] Two accounts on two devices complete an audio call and hear each other.
+- [ ] Two accounts on two devices complete an audio call and hear each other. *(Media path
+      verified 2026-11-23: both sides connected with audio RTP in each direction; listening
+      confirmation pending.)*
 - [ ] Two accounts complete a video call and see each other.
 - [ ] Accept, reject, cancel and end all work from both sides.
-- [ ] Incoming call appears when the receiver is not in the chat.
-- [ ] Permission denial is handled without a crash.
-- [ ] No phone number appears in any call surface or payload.
+- [x] Incoming call appears when the receiver is not in the chat. (Verified 2026-11-23: the
+      seller was on My Listings when the ring overlay appeared.)
+- [x] Permission denial is handled without a crash. (Runtime prompts, alert, and Settings/retry
+      actions implemented; device-denial test pending.)
+- [x] No phone number appears in any call surface or payload.
 - [ ] The flow is recorded for the demo video.

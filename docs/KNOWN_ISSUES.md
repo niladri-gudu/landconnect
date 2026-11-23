@@ -18,9 +18,9 @@ creates an `RTCPeerConnection` or joins a LiveKit room. No audio or video flows.
 **Impact:** The key evaluation criterion is unmet.
 **Fix:** Integrate LiveKit RN or `react-native-webrtc`; publish local tracks and render remote
 tracks. See [AUDIO_VIDEO_CALLING.md](AUDIO_VIDEO_CALLING.md) §4–5.
-**Status:** Implemented in code 2026-11-22 (`app/call/[callId].tsx`, `components/active-call.tsx`,
-`LiveKitRoom`). Pending: `LIVEKIT_*` credentials, a development build (Expo Go cannot load
-WebRTC), and two-device verification.
+**Status:** Media verified 2026-11-23 between a Nothing Phone 3a and the Android emulator:
+LiveKit Cloud room joined, ICE/DTLS connected, audio RTP flowing both ways over the phone's
+cellular network (~60 ms RTT). Video-call verification still pending.
 
 ### KI-02 — No incoming-call UI outside the call screen
 **Severity:** P0 · **Area:** Calling
@@ -39,8 +39,10 @@ shows accept/decline on any screen.
 **Impact:** Video calls fail or crash on permission request.
 **Fix:** Add permissions and usage strings, rebuild the dev client, request at runtime with a
 rationale. See [AUDIO_VIDEO_CALLING.md](AUDIO_VIDEO_CALLING.md) §4.2.
-**Status:** Resolved in config 2026-11-22 — `CAMERA`, `BLUETOOTH_CONNECT`, and iOS usage strings
-are present. The development build still needs to be produced for them to take effect.
+**Status:** Resolved 2026-11-23 — permissions and usage strings are present, and
+`lib/call-permissions.ts` now requests `RECORD_AUDIO` (plus `CAMERA` for video) before creating,
+accepting, or joining a call. Denial shows an actionable error with Settings/retry actions instead
+of joining a muted room.
 
 ### KI-09 — No demo build or deployed API
 **Severity:** P0 · **Area:** Delivery
@@ -119,6 +121,9 @@ conversations lose their newest history.
 **Severity:** P2 · **Area:** Calling
 **Symptom:** `MISSED` exists in the enum but nothing sets it; an unanswered call stays `RINGING`.
 **Fix:** A timeout job or a client timer that calls `end` after 30–45 s.
+**Status:** Mitigated 2026-11-23 — the caller screen ends an unanswered call after 45 s and shows
+"No answer". The server records `ENDED`, not `MISSED`; a background job would be needed for the
+exact enum state and is out of prototype scope.
 
 ### KI-12 — No push/background delivery
 **Severity:** P2 · **Area:** Calling/Messaging
@@ -141,6 +146,9 @@ once LiveKit is the shipped path.
 **Severity:** P2 · **Area:** Calling/UX
 **Symptom:** Call screen shows hardcoded "R"/"C" initials and no name.
 **Fix:** Include participant names in the call DTO or fetch the conversation, then render them.
+**Status:** Resolved 2026-11-23 — `CallDto` now embeds `initiator` and `receiver` summaries
+(`id`, `name`, `role`, `avatarUrl`). The ring overlay and both call stages render the correct
+name and role immediately, with no second fetch.
 
 ### KI-24 — No deep-link handling for calls
 **Severity:** P2 · **Area:** Navigation
@@ -195,16 +203,18 @@ Feed cards use the first-letter placeholder. Add real image URLs to the seed for
 
 | ID | Area | Severity | Status |
 |---|---|---|---|
-| KI-01 | Calling media | P0 | Code done; verify on devices |
+| KI-01 | Calling media | P0 | Audio verified; video pending |
 | KI-02 | Incoming call UI | P0 | Resolved |
-| KI-03 | Permissions | P0 | Resolved (needs rebuild) |
+| KI-03 | Permissions | P0 | Resolved |
 | KI-09 | Build/deploy | P0 | Open |
 | KI-26 | Socket rejoin | P1 | Resolved |
-| KI-04 | Embedded map | P1 | Open |
+| KI-04 | Embedded map | P1 | Resolved |
 | KI-05 | Image upload | P1 | Resolved |
 | KI-06 | Edit listing | P1 | Open |
 | KI-07 | Tests/CI | P1 | Open |
 | KI-08 | Rate limiting | P1 | Open |
 | KI-21 | CORS/dev secret | P1 if deployed | Open |
-| KI-10–13, 22–24, 27–28 | Messaging/calls polish | P2 | Open |
+| KI-11 | Missed-call transition | P2 | Mitigated (client timer) |
+| KI-23 | Counterpart identity | P2 | Resolved |
+| KI-10, 12–13, 22, 24, 27–28 | Messaging/calls polish | P2 | Open |
 | KI-14–20, 25 | Product polish | P3 | Deferred |

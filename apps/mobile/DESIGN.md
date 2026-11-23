@@ -84,8 +84,10 @@ pills for small controls only. Minimum touch target 44dp (48dp where layout allo
 - **Create listing** — grouped sections (basics, price/size, location, photos), GPS capture, image
   previews, inline validation.
 - **Auth** — deep-green hero, white card, role cards with descriptions; password reveal.
-- **Calls** — deep-green stage with participant identity; live call controls use real LiveKit track
-  state; app-level incoming-call modal with labels, not glyph-only buttons.
+- **Calls** — deep-green stage with the participant's real name, role and avatar (from the call
+  payload, not a placeholder); live call controls use real LiveKit track state; microphone/camera
+  permission is requested before joining and denial offers Settings/retry; app-level incoming-call
+  modal with labels, not glyph-only buttons.
 
 ## Imagery and truth
 
@@ -103,7 +105,8 @@ Indian INR formatting and lakh/crore units.
 
 ## Verification
 
-Screenshots from the Pixel 4 emulator live in `docs/screenshots/` (feed, detail, chat, messages,
-profile, listings, create, login, incoming call, map detail, map picker, upload proof). `pnpm --filter @landconnect/mobile typecheck`
-passes. The Expo dev-client "Tools" floating button is development-only and does not ship in a
-production build.
+Screenshots live in `docs/screenshots/` (feed, detail, chat, messages, profile, listings, create,
+login, incoming call, map detail, map picker, upload proof, plus audio-call evidence from a
+Nothing Phone 3a and the emulator). `pnpm --filter @landconnect/mobile typecheck` passes. The
+Expo dev-client "Tools" floating button is development-only and does not ship in a production
+build.

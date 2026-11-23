@@ -9,8 +9,9 @@ Built as the LandConnect technical assignment (issued 2026-11-20, due **2026-11-
 > call signalling, LiveKit media wiring and the global incoming-call overlay are implemented.
 > An embedded **MapLibre + OpenFreeMap** map (no API key) is verified on the Android dev build,
 > and listing photos upload through **Neon Object Storage** (`POST /api/uploads`). LiveKit
-> audio/video verification and the APK + demo video are still pending. See
-> [TASK_TRACKER.md](docs/TASK_TRACKER.md).
+> **audio media is verified between a physical phone and the emulator** (ICE/DTLS connected,
+> audio RTP both ways over cellular); the video-call check, preview APK and demo video are still
+> pending. See [TASK_TRACKER.md](docs/TASK_TRACKER.md).
 
 ---
 
@@ -173,12 +174,14 @@ Details: [AUTH_AND_ROLE_PERMISSIONS.md](docs/AUTH_AND_ROLE_PERMISSIONS.md).
 `POST /api/calls` creates a `CallSession` (RINGING) with a unique room name and emits
 `call:incoming` to the receiver's private `user:<id>` room and the conversation room. The
 receiver accepts/rejects via `POST /api/calls/:id/answer`; acceptance flips to ACTIVE and
-returns a LiveKit room token when `LIVEKIT_*` is configured. The app-level
-`IncomingCallHost` shows accept/decline on any screen. Once ACTIVE, both sides fetch a token
-from `GET /api/calls/:id/token` and join the room with `LiveKitRoom`; the mic (and camera for
-video) publish automatically, remote video renders through `VideoTrack`, and mute/camera
-control the real tracks. `POST /api/calls/:id/end` closes the session. Requires a development
-build — Expo Go cannot load native WebRTC. See
+returns a LiveKit room token when `LIVEKIT_*` is configured. Every call payload embeds both
+participants, so the app-level `IncomingCallHost` and call stage show the real name and role
+before any second fetch. Microphone (and camera for video) permission is requested before a
+call is created, accepted, or joined; denial shows Settings/retry actions instead of a silently
+muted room. An unanswered outgoing call ends itself after 45 seconds. Once ACTIVE, both sides
+join with `LiveKitRoom`; the mic (and camera for video) publish automatically, remote video
+renders through `VideoTrack`, and mute/camera control the real tracks. `POST /api/calls/:id/end`
+closes the session. Requires a development build — Expo Go cannot load native WebRTC. See
 [AUDIO_VIDEO_CALLING.md](docs/AUDIO_VIDEO_CALLING.md).
 
 ---

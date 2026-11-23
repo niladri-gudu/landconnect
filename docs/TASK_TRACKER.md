@@ -130,9 +130,9 @@
 | P1-5 | Image picker + Neon Object Storage upload | Listings | 2 h | ✅ verified 2026-11-23 |
 | P1-6 | Listing edit screen using PATCH | Listings | 1.5 h | ⬜ |
 | P1-7 | Rate limiting on auth/messages/calls | Security | 1 h | ⬜ |
-| P1-8 | Add `MISSED` timeout (client or job) | Calling | 1 h | ⬜ |
-| P1-9 | Handle permission-denied flows gracefully | Calling | 45 m | ⬜ |
-| P1-10 | Show counterpart name in call UI | Calling | 45 m | ⬜ |
+| P1-8 | Add `MISSED` timeout (client or job) | Calling | 1 h | ✅ client 45 s timeout 2026-11-23 |
+| P1-9 | Handle permission-denied flows gracefully | Calling | 45 m | ✅ runtime prompts + retry 2026-11-23 |
+| P1-10 | Show counterpart name in call UI | Calling | 45 m | ✅ DTO participants 2026-11-23 |
 | P1-11 | API smoke tests (Vitest + supertest) | Testing | 2 h | ⬜ |
 | P1-12 | Typecheck CI on push | Testing | 30 m | ⬜ |
 | P1-13 | Verify no phone/email leaks in DTOs | Security | 30 m | ⬜ |
