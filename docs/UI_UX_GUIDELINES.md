@@ -26,26 +26,26 @@
 
 | Token | Hex | Usage |
 |---|---|---|
-| `primary` | `#075E54` | Headers, brand surfaces, primary text on light |
-| `primaryDark` | `#054D44` | Call screen background, logo text |
-| `teal` | `#128C7E` | Links, active tab tint, secondary accents |
-| `accent` | `#25D366` | Primary buttons, send button, accept call |
-| `accentDark` | `#1EBE5A` | (reserved for pressed accent) |
-| `background` | `#ECE5DD` | App/chat background |
+| `primary` | `#0F6E56` | Primary buttons, active nav, link accents |
+| `primaryDark` | `#10201C` | Auth hero, call stage, splash, brand tiles |
+| `primarySoft` | `#E8F1ED` | Tonal buttons, selected role cards |
+| `mint` / `teal` | `#5DCAA5` | Highlights, logo light wedge |
+| `accent` / `amber` | `#EF9F27` | Single accent, logo sun, price emphasis |
+| `background` | `#F5F8F7` | App ground |
 | `surface` | `#FFFFFF` | Cards, inputs, sheets |
-| `surfaceAlt` | `#F7F8FA` | Composer bar, subtle zones |
+| `surfaceAlt` | `#E8F1ED` | Input fills, composer, subtle zones |
 | `bubbleIn` | `#FFFFFF` | Incoming chat bubble |
-| `bubbleOut` | `#DCF8C6` | Outgoing chat bubble, badges, placeholders |
-| `text` | `#111B21` | Primary text |
-| `textMuted` | `#667781` | Secondary text, placeholders |
-| `border` | `#E4E9EB` | Hairlines, input borders |
-| `danger` | `#D93025` | Reject/end call, destructive text |
-| `warning` | `#F4B400` | Non-ACTIVE listing status |
+| `bubbleOut` | `#D7F0E6` | Outgoing chat bubble |
+| `text` | `#10201C` | Primary text |
+| `textMuted` | `#4B5C55` | Secondary text, placeholders |
+| `border` | `#E5E7EB` | Hairlines, input borders |
+| `danger` | `#B3261E` | Reject/end call, destructive text |
+| `warning` | `#8A5A00` | Non-ACTIVE listing status |
 | `white` | `#FFFFFF` | On-primary text |
-| `overlay` | `rgba(0,0,0,0.45)` | Scrims (reserved) |
+| `overlay` | `rgba(16,32,28,0.5)` | Scrims (reserved) |
 
-Contrast notes: white on `primary`/`danger` passes AA for large text; `textMuted` on white is
-borderline for small text — use 13 px+ or darken to `#5B6B75` for body copy.
+Contrast notes: white on `primary`/`danger` passes AA; `textMuted` on white passes for body copy.
+Amber is an accent only — never use it for small text on white.
 
 ### 2.2 Spacing
 
@@ -190,7 +190,7 @@ Gaps to close:
 
 | Do | Don't |
 |---|---|
-| Keep the green header and beige chat canvas | Introduce a second brand palette |
+| Keep the near-black header and pale-mint canvas | Introduce a second brand palette |
 | Show price and acreage together | Hide price behind a tap |
 | Use one accent-filled CTA per screen | Compete with multiple green buttons |
 | Label optional/private fields | Ask for phone as if mandatory |
@@ -199,8 +199,10 @@ Gaps to close:
 
 ## 9. Brand assets
 
-- Logo mark: "LC" on an accent circle, primary-dark text.
-- Splash background `#075E54`.
+- Logo mark: landconnect.si glyph — `#10201C` rounded tile, `#0F6E56` and `#5DCAA5` land wedges,
+  `#EF9F27` sun. Rendered from the original SVG into `icon.png`, adaptive, monochrome and splash
+  PNGs; `brand-mark.png` is used in the auth hero and feed header.
+- Splash background `#10201C`, mark at 200dp.
 - App name `LandConnect`; Android package `com.landconnect.app`; scheme `landconnect`.
 - Optional Figma: not required by the brief; the tokens above are the design source of truth.
 
