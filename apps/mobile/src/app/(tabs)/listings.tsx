@@ -148,20 +148,36 @@ export default function MyListingsScreen() {
                 }
                 tone={statusTone(item.status)}
               />
-              <Pressable
-                onPress={() => confirmRemove(item.id, item.title)}
-                disabled={remove.isPending}
-                accessibilityRole="button"
-                accessibilityLabel={`Remove ${item.title}`}
-                style={({ pressed }) => [
-                  styles.removeButton,
-                  pressed && { opacity: 0.7 },
-                  remove.isPending && { opacity: 0.5 },
-                ]}
-              >
-                <Ionicons name="trash-outline" size={15} color={colors.danger} />
-                <Text style={styles.removeText}>Remove</Text>
-              </Pressable>
+              <View style={styles.actionsRight}>
+                <Pressable
+                  onPress={() =>
+                    router.push(`/listing/create?id=${item.id}` as Href)
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${item.title}`}
+                  style={({ pressed }) => [
+                    styles.editButton,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Ionicons name="create-outline" size={15} color={colors.primary} />
+                  <Text style={styles.editText}>Edit</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => confirmRemove(item.id, item.title)}
+                  disabled={remove.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${item.title}`}
+                  style={({ pressed }) => [
+                    styles.removeButton,
+                    pressed && { opacity: 0.7 },
+                    remove.isPending && { opacity: 0.5 },
+                  ]}
+                >
+                  <Ionicons name="trash-outline" size={15} color={colors.danger} />
+                  <Text style={styles.removeText}>Remove</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         )}
@@ -190,6 +206,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     paddingTop: spacing.sm,
   },
+  actionsRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 36,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.pill,
+  },
+  editText: { ...type.label, color: colors.primary },
   removeButton: {
     flexDirection: 'row',
     alignItems: 'center',

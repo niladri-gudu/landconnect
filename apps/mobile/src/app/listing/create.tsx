@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useRouter, type Href } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,12 +18,27 @@ import { listingCreateSchema } from '@landconnect/shared';
 
 import { ListingImage } from '@/components/listing-image';
 import { LocationPicker } from '@/components/listing-map';
-import { Button, Card, Field, SectionHeader } from '@/components/ui';
+import { Button, Card, ErrorState, Field, Loading, SectionHeader } from '@/components/ui';
 import { api } from '@/lib/api';
 import { colors, radius, spacing, type } from '@/lib/theme';
 
+/**
+ * One form for both publishing and editing. Editing opens the same screen with
+ * `?id=<listingId>`; the My Listings screen links to it.
+ */
 export default function CreateListingScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const editingId = typeof id === 'string' && id.length > 0 ? id : null;
+  const isEditing = Boolean(editingId);
+
+  const existing = useQuery({
+    queryKey: ['listing', editingId],
+    queryFn: () => api.listings.get(editingId as string),
+    enabled: Boolean(editingId),
+  });
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -31,11 +47,30 @@ export default function CreateListingScreen() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [retainedImages, setRetainedImages] = useState<string[]>([]);
   const [latitude, setLatitude] = useState('12.9716');
   const [longitude, setLongitude] = useState('77.5946');
   const [locating, setLocating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+
+  // Seed the form once, when the listing to edit arrives.
+  useEffect(() => {
+    const listing = existing.data;
+    if (!listing || prefilled) return;
+    setTitle(listing.title);
+    setDescription(listing.description);
+    setPrice(String(listing.price));
+    setAreaAcres(String(listing.areaAcres));
+    setAddress(listing.address);
+    setCity(listing.city);
+    setState(listing.state);
+    setLatitude(String(listing.latitude));
+    setLongitude(String(listing.longitude));
+    setRetainedImages(listing.images);
+    setPrefilled(true);
+  }, [existing.data, prefilled]);
 
   async function useMyLocation() {
     setLocating(true);
@@ -65,7 +100,7 @@ export default function CreateListingScreen() {
 
   async function pickPhotos() {
     setError(null);
-    const remaining = 4 - photos.length;
+    const remaining = 4 - retainedImages.length - photos.length;
     if (remaining <= 0) return;
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -89,6 +124,10 @@ export default function CreateListingScreen() {
 
   function removePhoto(index: number) {
     setPhotos((current) => current.filter((_, i) => i !== index));
+  }
+
+  function removeRetainedImage(index: number) {
+    setRetainedImages((current) => current.filter((_, i) => i !== index));
   }
 
   async function submit() {
@@ -120,7 +159,7 @@ export default function CreateListingScreen() {
     }
 
     try {
-      const imageUrls =
+      const uploaded =
         photos.length > 0
           ? (
               await api.uploads.images(
@@ -132,14 +171,48 @@ export default function CreateListingScreen() {
               )
             ).urls
           : [];
-      const listing = await api.listings.create({ ...parsed.data, images: imageUrls });
+      const images = [...retainedImages, ...uploaded];
+      const listing = editingId
+        ? await api.listings.update(editingId, { ...parsed.data, images })
+        : await api.listings.create({ ...parsed.data, images });
+      // A saved edit must not be masked by cached detail/feed data.
+      void queryClient.invalidateQueries({ queryKey: ['listing', listing.id] });
+      void queryClient.invalidateQueries({ queryKey: ['listings'] });
+      void queryClient.invalidateQueries({ queryKey: ['my-listings'] });
       router.replace(`/listing/${listing.id}` as Href);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not publish listing');
+      setError(
+        err instanceof Error
+          ? err.message
+          : isEditing
+            ? 'Could not save changes'
+            : 'Could not publish listing',
+      );
     } finally {
       setBusy(false);
     }
   }
+
+  if (isEditing && existing.isError) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.content}>
+          <ErrorState
+            message={
+              existing.error instanceof Error
+                ? existing.error.message
+                : 'Could not load this listing.'
+            }
+            onRetry={() => {
+              void existing.refetch();
+            }}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  if (isEditing && !prefilled) return <Loading />;
 
   return (
     <KeyboardAvoidingView
@@ -152,9 +225,11 @@ export default function CreateListingScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.intro}>
-          <Text style={styles.heading}>Publish your land</Text>
+          <Text style={styles.heading}>{isEditing ? 'Edit your listing' : 'Publish your land'}</Text>
           <Text style={styles.subheading}>
-            Add the facts buyers care about. You can edit or remove the listing later.
+            {isEditing
+              ? 'Update the facts buyers see. Changes go live as soon as you save.'
+              : 'Add the facts buyers care about. You can edit or remove the listing later.'}
           </Text>
         </View>
 
@@ -265,6 +340,20 @@ export default function CreateListingScreen() {
           <SectionHeader title="Photos" />
           <Card style={styles.card}>
             <View style={styles.photoGrid}>
+              {retainedImages.map((uri, index) => (
+                <View key={uri} style={styles.photoTile}>
+                  <ListingImage uri={uri} title={title || 'Listing photo'} style={styles.photo} />
+                  <Pressable
+                    onPress={() => removeRetainedImage(index)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove saved photo ${index + 1}`}
+                    hitSlop={8}
+                    style={styles.removePhoto}
+                  >
+                    <Ionicons name="close" size={14} color={colors.white} />
+                  </Pressable>
+                </View>
+              ))}
               {photos.map((photo, index) => (
                 <View key={photo.assetId ?? photo.uri} style={styles.photoTile}>
                   <ListingImage
@@ -283,7 +372,7 @@ export default function CreateListingScreen() {
                   </Pressable>
                 </View>
               ))}
-              {photos.length < 4 ? (
+              {retainedImages.length + photos.length < 4 ? (
                 <Pressable
                   onPress={pickPhotos}
                   accessibilityRole="button"
@@ -297,8 +386,8 @@ export default function CreateListingScreen() {
               ) : null}
             </View>
             <Text style={styles.photoHintText}>
-              {photos.length}/4 selected · JPEG, PNG or WebP, up to 8 MB each. Photos upload when
-              you publish.
+              {retainedImages.length + photos.length}/4 selected · JPEG, PNG or WebP, up to 8 MB
+              each. Photos upload when you {isEditing ? 'save' : 'publish'}.
             </Text>
           </Card>
         </View>
@@ -311,7 +400,7 @@ export default function CreateListingScreen() {
         ) : null}
 
         <Button
-          label="Publish listing"
+          label={isEditing ? 'Save changes' : 'Publish listing'}
           icon="checkmark-circle-outline"
           onPress={submit}
           loading={busy}

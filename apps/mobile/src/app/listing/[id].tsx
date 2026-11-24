@@ -265,9 +265,16 @@ export default function ListingDetailScreen() {
                 shown.
               </Text>
               <Button
+                label="Edit listing"
+                icon="create-outline"
+                variant="tonal"
+                size="small"
+                onPress={() => router.push(`/listing/create?id=${item.id}` as Href)}
+              />
+              <Button
                 label="Manage in My Listings"
                 icon="business-outline"
-                variant="tonal"
+                variant="ghost"
                 size="small"
                 onPress={() => router.push('/(tabs)/listings' as Href)}
               />
