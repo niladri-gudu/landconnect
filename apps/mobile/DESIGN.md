@@ -131,7 +131,8 @@ Indian INR formatting and lakh/crore units.
 ## Verification
 
 Screenshots live in `docs/screenshots/` (feed, detail, chat, messages, profile, listings, create,
-login, incoming call, map detail, map picker, upload proof, call setup and ringing, plus audio-call
-evidence from a Nothing Phone 3a and the emulator). `pnpm --filter @landconnect/mobile typecheck` passes. The
+login, incoming call, map detail, map picker, upload proof, call setup and ringing, message
+banner, call history, video call on both devices, plus audio-call evidence from a Nothing Phone
+3a and the emulator). `pnpm --filter @landconnect/mobile typecheck` passes. The
 Expo dev-client "Tools" floating button is development-only and does not ship in a production
 build.

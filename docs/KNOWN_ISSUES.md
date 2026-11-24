@@ -18,10 +18,10 @@ creates an `RTCPeerConnection` or joins a LiveKit room. No audio or video flows.
 **Impact:** The key evaluation criterion is unmet.
 **Fix:** Integrate LiveKit RN or `react-native-webrtc`; publish local tracks and render remote
 tracks. See [AUDIO_VIDEO_CALLING.md](AUDIO_VIDEO_CALLING.md) §4–5.
-**Status:** Media verified 2026-11-23 between a Nothing Phone 3a and the Android emulator:
-LiveKit Cloud room joined, ICE/DTLS connected, audio RTP flowing both ways over the phone's
-cellular network (~60 ms RTT). Video is implemented (local/remote `VideoTrack`, camera toggle,
-permission gating); the final two-device video check is the only remaining verification.
+**Status:** Resolved 2026-11-25 — audio verified 2026-11-23 (phone ↔ emulator, RTP both ways over
+cellular), and a full video call was verified on the final build: remote video from the phone
+rendered on the emulator, the emulator test pattern rendered on the phone, local preview and
+camera toggle worked, and the call logged `Video call · 4:20` in chat.
 
 ### KI-02 — No incoming-call UI outside the call screen
 **Severity:** P0 · **Area:** Calling
@@ -142,8 +142,11 @@ exact enum state and is out of prototype scope.
 **Fix:** FCM/APNs + call kit/VoIP push (out of prototype scope).
 **Status:** Partially mitigated 2026-11-24 — while the app is foregrounded there is now an
 in-app message banner and an unread tab badge; a ring or message that occurred during a socket
-gap is recovered on reconnect/foreground (pending-ring replay + history refetch). True background
-delivery still needs push and remains out of scope.
+gap is recovered on reconnect/foreground (pending-ring replay + history refetch). Verified
+2026-11-25: a call created while the phone was offline/restarted rang on return, and a message
+sent while the phone was backgrounded arrived once foregrounded. If the app stays foregrounded
+through a network blip, the automatic socket reconnect can lag until the next foreground cycle;
+true background delivery still needs push and remains out of scope.
 
 ### KI-13 — Refresh-token rows are never pruned
 **Severity:** P2 · **Area:** Backend

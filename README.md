@@ -10,8 +10,9 @@ Built as the LandConnect technical assignment (issued 2026-11-20, due **2026-11-
 > maps with GPS/tap-to-place geotagging, realtime chat, and in-app audio/video calling with
 > accept, reject and end. The API is deployed at <https://landconnect.hostless.app>
 > (`/health`), and an installable preview APK is published from the latest EAS preview build.
-> LiveKit **audio** is verified between a physical phone and the emulator; **video** is wired and
-> awaiting the final two-device check. The demonstration video is the remaining deliverable.
+> LiveKit **audio and video** are verified between a physical phone and the emulator (media both
+> ways, call timer and history entries). Missing rings and messages are recovered on reconnect or
+> app foreground. The demonstration video is the remaining deliverable.
 > See [TASK_TRACKER.md](docs/TASK_TRACKER.md).
 
 ---
@@ -65,7 +66,7 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 | Message notifications | ✅ in-app banner + Messages tab badge while foreground; missed messages/rings recovered on reconnect | `components/message-banner.tsx` |
 | Call history | ✅ call entries in chat: missed, declined, completed with duration | `routes/calls.ts`, `chat/[conversationId].tsx` |
 | Meeting rooms | 🟡 conversations act as persistent rooms for chat and calls | Socket.IO conversation rooms |
-| **In-app audio/video calling** | ✅ LiveKit RN media + track-backed controls; audio verified, video wired and awaiting the final device check; pending rings replay on reconnect | `call/[callId].tsx`, `components/active-call.tsx`, `/api/calls` |
+| **In-app audio/video calling** | ✅ LiveKit RN media + track-backed controls; audio and video verified on phone ↔ emulator; pending rings replay on reconnect | `call/[callId].tsx`, `components/active-call.tsx`, `/api/calls` |
 | Accept / reject / end calls | ✅ | `/api/calls/:id/answer`, `/api/calls/:id/end` |
 | Incoming call while outside chat | ✅ | `components/incoming-call.tsx` app-level ring overlay |
 | No phone number exchange | ✅ | owner/conversation/call DTOs never include phone |
@@ -168,7 +169,7 @@ Seed script creates (password `password123` for all):
 | What | Where |
 |---|---|
 | API (HTTPS) | <https://landconnect.hostless.app> · health check at `/health` |
-| Android preview APK | <https://expo.dev/accounts/niladri_expo/projects/landconnect/builds> (latest preview build) |
+| Android preview APK | <https://expo.dev/artifacts/eas/hNTK89HEZXizgQjhwMUUZrAgHs2OEo3A0mWpPRTH6cE.apk> (final preview build) |
 
 The APK talks to the hosted API and LiveKit Cloud, so it works on mobile data with no local
 setup. Calling needs the installed build — Expo Go cannot load the native WebRTC module.
