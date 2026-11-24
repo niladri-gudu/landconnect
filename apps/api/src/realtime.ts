@@ -4,6 +4,7 @@ import { SOCKET_EVENTS } from '@landconnect/shared';
 
 import { prisma } from './lib/prisma';
 import { verifyToken, type AuthUser } from './lib/security';
+import { toCallDto } from './lib/serialize';
 
 interface RelayPayload {
   conversationId?: unknown;
@@ -54,6 +55,39 @@ export function attachRealtime(io: Server) {
   io.on('connection', (socket) => {
     const user = socket.data.user as AuthUser;
     void socket.join(`user:${user.id}`);
+
+    // A call that started while this socket was down never reached the
+    // receiver. Replay it now, unless they are already in another call.
+    void (async () => {
+      try {
+        const active = await prisma.callSession.findFirst({
+          where: {
+            status: 'ACTIVE',
+            // Stale ACTIVE rows must not suppress a genuine incoming ring.
+            createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+            OR: [{ initiatorId: user.id }, { receiverId: user.id }],
+          },
+          select: { id: true },
+        });
+        if (active) return;
+
+        const pending = await prisma.callSession.findFirst({
+          where: {
+            receiverId: user.id,
+            status: 'RINGING',
+            createdAt: { gte: new Date(Date.now() - 120_000) },
+          },
+          include: {
+            initiator: { select: { id: true, name: true, role: true, avatarUrl: true } },
+            receiver: { select: { id: true, name: true, role: true, avatarUrl: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (pending) socket.emit(SOCKET_EVENTS.callIncoming, toCallDto(pending));
+      } catch {
+        // Recovery is best-effort; never break the connection over it.
+      }
+    })();
 
     socket.on(SOCKET_EVENTS.conversationJoin, async (conversationId: unknown) => {
       if (typeof conversationId !== 'string') return;

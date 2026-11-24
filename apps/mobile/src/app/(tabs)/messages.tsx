@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
-import { useEffect } from 'react';
 import {
   FlatList,
   Pressable,
@@ -12,11 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  SOCKET_EVENTS,
-  type ConversationDto,
-  type MessageDto,
-} from '@landconnect/shared';
+import type { ConversationDto } from '@landconnect/shared';
 
 import {
   Avatar,
@@ -27,7 +22,6 @@ import {
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatConversationTime } from '@/lib/format';
-import { connectSocket } from '@/lib/socket';
 import { colors, spacing, type } from '@/lib/theme';
 
 function otherParticipants(conversation: ConversationDto, meId?: string) {
@@ -47,7 +41,7 @@ function ConversationSkeleton() {
 }
 
 export default function MessagesScreen() {
-  const { user, accessToken } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -55,49 +49,6 @@ export default function MessagesScreen() {
     queryKey: ['conversations'],
     queryFn: () => api.conversations.list(),
   });
-
-  // Keep previews and ordering live while the tab is open.
-  useEffect(() => {
-    if (!accessToken) return;
-    const socket = connectSocket();
-
-    const onMessage = (message: MessageDto) => {
-      const cached = queryClient.getQueryData<ConversationDto[]>(['conversations']);
-      if (cached && !cached.some((item) => item.id === message.conversationId)) {
-        void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-        return;
-      }
-
-      queryClient.setQueryData<ConversationDto[]>(['conversations'], (prev) => {
-        if (!prev) return prev;
-        return prev
-          .map((conversation) =>
-            conversation.id === message.conversationId
-              ? {
-                  ...conversation,
-                  lastMessage: {
-                    id: message.id,
-                    body: message.body,
-                    senderId: message.senderId,
-                    createdAt: message.createdAt,
-                  },
-                  lastMessageAt: message.createdAt,
-                  unreadCount:
-                    message.senderId === user?.id
-                      ? conversation.unreadCount
-                      : conversation.unreadCount + 1,
-                }
-              : conversation,
-          )
-          .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
-      });
-    };
-
-    socket.on(SOCKET_EVENTS.messageNew, onMessage);
-    return () => {
-      socket.off(SOCKET_EVENTS.messageNew, onMessage);
-    };
-  }, [accessToken, queryClient, user?.id]);
 
   const unreadTotal =
     conversations.data?.reduce((sum, conversation) => sum + conversation.unreadCount, 0) ?? 0;

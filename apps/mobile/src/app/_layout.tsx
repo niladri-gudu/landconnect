@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform } from 'react-native';
 
 import { IncomingCallHost } from '@/components/incoming-call';
+import { MessageBannerHost } from '@/components/message-banner';
 import { AuthProvider } from '@/lib/auth';
 import { colors, type } from '@/lib/theme';
 
@@ -50,6 +51,7 @@ export default function RootLayout() {
           <Stack.Screen name="call/[callId]" options={{ headerShown: false }} />
         </Stack>
         <IncomingCallHost />
+        <MessageBannerHost />
       </AuthProvider>
     </QueryClientProvider>
   );

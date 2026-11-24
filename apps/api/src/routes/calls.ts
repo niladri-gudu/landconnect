@@ -14,7 +14,7 @@ import {
 import { prisma } from '../lib/prisma';
 import { createLivekitGrant } from '../lib/livekit';
 import { AppError, requireAuth } from '../lib/security';
-import { toCallDto } from '../lib/serialize';
+import { toCallDto, toMessageDto } from '../lib/serialize';
 
 export const callsRouter = Router();
 
@@ -36,11 +36,9 @@ async function findCallForUser(id: string, userId: string) {
   return call;
 }
 
-function emitCallEvent(
-  req: Parameters<Parameters<Router['post']>[1]>[0],
-  call: CallDto,
-  event: string,
-) {
+type RouteRequest = Parameters<Parameters<Router['post']>[1]>[0];
+
+function emitCallEvent(req: RouteRequest, call: CallDto, event: string) {
   const io = req.app.get('io') as Server | undefined;
   const rooms = [
     `conversation:${call.conversationId}`,
@@ -49,6 +47,59 @@ function emitCallEvent(
   ];
   for (const room of rooms) {
     io?.to(room).emit(event, call);
+  }
+}
+
+/**
+ * Calls belong in the conversation history too. A CALL message is written when
+ * the session closes, so the chat shows "Audio call · 2:14" without a separate
+ * call-log screen or schema change.
+ */
+async function recordCallLog(
+  req: RouteRequest,
+  call: { conversationId: string; initiatorId: string; kind: string },
+  outcome: 'ENDED' | 'REJECTED' | 'MISSED',
+  startedAt: Date | null,
+  endedAt: Date,
+  senderId = call.initiatorId,
+) {
+  const kind = call.kind === 'VIDEO' ? 'Video' : 'Audio';
+  let body: string;
+  if (outcome === 'REJECTED') {
+    body = `Declined ${kind.toLowerCase()} call`;
+  } else if (outcome === 'MISSED' || !startedAt) {
+    body = `Missed ${kind.toLowerCase()} call`;
+  } else {
+    const seconds = Math.max(0, Math.round((endedAt.getTime() - startedAt.getTime()) / 1000));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const tail = String(seconds % 60).padStart(2, '0');
+    const time =
+      hours > 0
+        ? `${hours}:${String(minutes).padStart(2, '0')}:${tail}`
+        : `${minutes}:${tail}`;
+    body = `${kind} call · ${time}`;
+  }
+
+  const message = await prisma.message.create({
+    data: {
+      conversationId: call.conversationId,
+      senderId,
+      body,
+      type: 'CALL',
+    },
+  });
+  const conversation = await prisma.conversation.update({
+    where: { id: call.conversationId },
+    data: { lastMessageAt: message.createdAt },
+    select: { participants: { select: { userId: true } } },
+  });
+
+  const io = req.app.get('io') as Server | undefined;
+  const dto = toMessageDto(message);
+  io?.to(`conversation:${call.conversationId}`).emit(SOCKET_EVENTS.messageNew, dto);
+  for (const participant of conversation.participants) {
+    io?.to(`user:${participant.userId}`).emit(SOCKET_EVENTS.messageNew, dto);
   }
 }
 
@@ -66,15 +117,17 @@ callsRouter.post('/', requireAuth, async (req, res) => {
   if (!other) throw new AppError(400, 'No other participant to call');
 
   // A second concurrent call would fight over the same microphone and leave
-  // the first one without a clean end. A RINGING row older than two minutes is
-  // treated as abandoned (the caller screen gives up after 45 seconds).
+  // the first one without a clean end. Stale rows must not block forever: a
+  // RINGING call is live for two minutes (the caller screen gives up at 45s)
+  // and an ACTIVE call is considered abandoned after an hour.
   const twoMinutesAgo = new Date(Date.now() - 120_000);
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   const liveCall = await prisma.callSession.findFirst({
     where: {
       AND: [
         {
           OR: [
-            { status: 'ACTIVE' },
+            { status: 'ACTIVE', createdAt: { gte: oneHourAgo } },
             { status: 'RINGING', createdAt: { gte: twoMinutesAgo } },
           ],
         },
@@ -111,6 +164,37 @@ callsRouter.post('/', requireAuth, async (req, res) => {
   res.status(201).json(dto);
 });
 
+/**
+ * Recovery endpoint for clients that reconnect after a network blip: returns
+ * the ringing call the receiver may have missed while the socket was down.
+ */
+callsRouter.get('/incoming', requireAuth, async (req, res) => {
+  const me = req.user!.id;
+  const active = await prisma.callSession.findFirst({
+    where: {
+      status: 'ACTIVE',
+      createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+      OR: [{ initiatorId: me }, { receiverId: me }],
+    },
+    select: { id: true },
+  });
+  if (active) {
+    res.json({ call: null });
+    return;
+  }
+
+  const pending = await prisma.callSession.findFirst({
+    where: {
+      receiverId: me,
+      status: 'RINGING',
+      createdAt: { gte: new Date(Date.now() - 120_000) },
+    },
+    include: callInclude,
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({ call: pending ? toCallDto(pending) : null });
+});
+
 callsRouter.get('/:id', requireAuth, async (req, res) => {
   const call = await findCallForUser((req.params.id as string), req.user!.id);
   res.json(toCallDto(call));
@@ -144,6 +228,17 @@ callsRouter.post('/:id/answer', requireAuth, async (req, res) => {
       include: callInclude,
     });
     emitCallEvent(req, toCallDto(rejected), SOCKET_EVENTS.callRejected);
+    // Signal first, then persist the history entry in the background: a slow
+    // database must not delay the caller learning the call was declined.
+    void recordCallLog(
+      req,
+      rejected,
+      'REJECTED',
+      null,
+      rejected.endedAt ?? new Date(),
+      // Authored by the decliner so the caller sees it as their message.
+      rejected.receiverId,
+    ).catch(() => undefined);
     const body: CallAnswerDto = { call: toCallDto(rejected) };
     res.json(body);
     return;
@@ -178,6 +273,13 @@ callsRouter.post('/:id/end', requireAuth, async (req, res) => {
     include: callInclude,
   });
   emitCallEvent(req, toCallDto(ended), SOCKET_EVENTS.callEnded);
+  void recordCallLog(
+    req,
+    ended,
+    ended.startedAt ? 'ENDED' : 'MISSED',
+    ended.startedAt,
+    ended.endedAt ?? new Date(),
+  ).catch(() => undefined);
 
   res.json(toCallDto(ended));
 });

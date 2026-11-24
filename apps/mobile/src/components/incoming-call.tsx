@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Modal,
   Pressable,
   StyleSheet,
@@ -34,6 +35,12 @@ export function IncomingCallHost() {
   const queryClient = useQueryClient();
   const [incoming, setIncoming] = useState<CallDto | null>(null);
   const [connecting, setConnecting] = useState(false);
+  // Read the current route without re-subscribing the socket on every
+  // navigation; otherwise each screen change re-fetches a pending call.
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     if (!accessToken || !user) return;
@@ -41,8 +48,22 @@ export function IncomingCallHost() {
 
     const onIncoming = (call: CallDto) => {
       if (call.receiverId !== user.id || call.status !== 'RINGING') return;
-      if (pathname.startsWith('/call/')) return;
+      if (pathnameRef.current.startsWith('/call/')) return;
       setIncoming(call);
+    };
+
+    // A ring emitted while the socket was down is lost; ask the server for any
+    // call still ringing whenever we reconnect or return to the foreground.
+    const refreshPendingCall = () => {
+      if (pathnameRef.current.startsWith('/call/')) return;
+      void api.calls
+        .incoming()
+        .then((result) => {
+          const call = result.call;
+          if (!call || call.status !== 'RINGING') return;
+          setIncoming((current) => (current?.id === call.id ? current : call));
+        })
+        .catch(() => undefined);
     };
 
     const clear = (call: CallDto) => {
@@ -52,13 +73,20 @@ export function IncomingCallHost() {
     socket.on(SOCKET_EVENTS.callIncoming, onIncoming);
     socket.on(SOCKET_EVENTS.callEnded, clear);
     socket.on(SOCKET_EVENTS.callRejected, clear);
+    socket.on('connect', refreshPendingCall);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshPendingCall();
+    });
+    refreshPendingCall();
 
     return () => {
       socket.off(SOCKET_EVENTS.callIncoming, onIncoming);
       socket.off(SOCKET_EVENTS.callEnded, clear);
       socket.off(SOCKET_EVENTS.callRejected, clear);
+      socket.off('connect', refreshPendingCall);
+      appState.remove();
     };
-  }, [accessToken, user, pathname]);
+  }, [accessToken, user]);
 
   // Navigating into the call route always dismisses the ring overlay.
   useEffect(() => {

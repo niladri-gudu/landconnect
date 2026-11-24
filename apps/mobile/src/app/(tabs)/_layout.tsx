@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { Tabs } from 'expo-router';
 import { StyleSheet, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { colors } from '@/lib/theme';
 
@@ -22,6 +24,15 @@ export default function TabsLayout() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const canSell = user?.role === 'SELLER' || user?.role === 'BROKER';
+
+  // Same query key as the Messages tab: the banner host updates this cache,
+  // so the badge follows every incoming message without polling.
+  const conversations = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => api.conversations.list(),
+    enabled: Boolean(user),
+  });
+  const unread = conversations.data?.reduce((sum, item) => sum + item.unreadCount, 0) ?? 0;
 
   return (
     <Tabs
@@ -63,6 +74,12 @@ export default function TabsLayout() {
         options={{
           title: 'Messages',
           tabBarIcon: tabIcon('chatbubbles', 'chatbubbles-outline'),
+          tabBarBadge: unread > 0 ? (unread > 99 ? '99+' : unread) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.primary,
+            color: colors.white,
+            fontSize: 10,
+          },
         }}
       />
       <Tabs.Screen

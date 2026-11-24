@@ -291,6 +291,7 @@ export const api = {
     create: (input: CallCreateInput) =>
       request<CallDto>('/api/calls', { method: 'POST', body: input }),
     get: (id: string) => request<CallDto>(`/api/calls/${id}`),
+    incoming: () => request<{ call: CallDto | null }>('/api/calls/incoming'),
     token: (id: string) =>
       request<{ url: string; room: string; token: string }>(`/api/calls/${id}/token`),
     answer: (id: string, accept: boolean) =>

@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -215,9 +216,20 @@ export default function ChatScreen() {
       );
     };
 
+    // Anything sent while the socket was down is not replayed by the server;
+    // refresh history (and the list previews) on reconnect and foreground.
+    const refreshHistory = () => {
+      void queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    };
+
     socket.on(SOCKET_EVENTS.messageNew, onMessage);
     socket.on(SOCKET_EVENTS.messageDelivered, onDelivered);
     socket.on(SOCKET_EVENTS.messageRead, onRead);
+    socket.on('connect', refreshHistory);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshHistory();
+    });
 
     // Opening the chat marks existing unread messages as read.
     markConversationRead();
@@ -227,6 +239,8 @@ export default function ChatScreen() {
       socket.off(SOCKET_EVENTS.messageNew, onMessage);
       socket.off(SOCKET_EVENTS.messageDelivered, onDelivered);
       socket.off(SOCKET_EVENTS.messageRead, onRead);
+      socket.off('connect', refreshHistory);
+      appState.remove();
       leaveConversation(conversationId);
     };
   }, [accessToken, conversationId, queryClient, user?.id]);
@@ -414,6 +428,25 @@ export default function ChatScreen() {
             }
 
             const message = item.message;
+
+            // Call outcomes are system entries, not chat bubbles.
+            if (message.type === 'CALL') {
+              const video = message.body.toLowerCase().includes('video');
+              return (
+                <View style={styles.callLogRow}>
+                  <View style={styles.callLogPill}>
+                    <Ionicons
+                      name={video ? 'videocam-outline' : 'call-outline'}
+                      size={13}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.callLogText}>{message.body}</Text>
+                    <Text style={styles.callLogTime}>{formatTime(message.createdAt)}</Text>
+                  </View>
+                </View>
+              );
+            }
+
             const mine = message.senderId === user?.id || message.senderId === 'me';
             return (
               <View style={styles.bubbleRow}>
@@ -506,6 +539,18 @@ const styles = StyleSheet.create({
   headerName: { ...type.title, fontSize: 16 },
   headerMeta: { ...type.caption, fontSize: 12, color: colors.textMuted },
   list: { paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: 6, flexGrow: 1 },
+  callLogRow: { alignItems: 'center', paddingVertical: 2 },
+  callLogPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+  },
+  callLogText: { ...type.caption, fontSize: 12, color: colors.primary, fontWeight: '600' },
+  callLogTime: { ...type.micro, color: colors.textMuted },
   dayRow: { alignItems: 'center', paddingVertical: spacing.sm },
   dayLabel: {
     ...type.micro,
