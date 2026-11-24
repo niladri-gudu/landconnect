@@ -141,34 +141,27 @@ export default function CallScreen() {
     if (granted) setError(null);
   }
 
-  // The callee receives credentials in the answer response; the caller (and
-  // any screen opened after acceptance) fetches its own room token.
+  // The callee's answer response seeds this cache before navigation; the
+  // caller fetches once after call:accepted. Either way the room renders
+  // without a second wait.
+  const mediaQuery = useQuery({
+    queryKey: ['call-media', callId],
+    queryFn: () => api.calls.token(callId),
+    enabled: status === 'ACTIVE' && permission === 'granted' && !media,
+    staleTime: Infinity,
+    retry: false,
+  });
+  const livekit = media ?? mediaQuery.data ?? null;
+
   useEffect(() => {
-    if (
-      status !== 'ACTIVE' ||
-      media ||
-      !callId ||
-      permission !== 'granted'
-    ) {
-      return;
+    if (mediaQuery.error) {
+      setError(
+        mediaQuery.error instanceof Error
+          ? mediaQuery.error.message
+          : 'Media is unavailable',
+      );
     }
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const credentials = await api.calls.token(callId);
-        if (!cancelled) setMedia(credentials);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Media is unavailable');
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [status, media, callId, permission]);
+  }, [mediaQuery.error]);
 
   // Abandon a call that is never answered, so the receiver's ring cannot stay
   // stuck after the caller gives up. The server records it as ended.
@@ -276,7 +269,7 @@ export default function CallScreen() {
       ? 'Calling…'
       : 'Incoming call'
     : active
-      ? media
+      ? livekit
         ? 'Connected'
         : permission === 'denied'
           ? 'Permission required'
@@ -287,11 +280,11 @@ export default function CallScreen() {
     <SafeAreaView style={styles.screen}>
       <StatusBar style="light" />
 
-      {active && media ? (
+      {active && livekit ? (
         <View style={styles.room}>
           <LiveKitRoom
-            serverUrl={media.url}
-            token={media.token}
+            serverUrl={livekit.url}
+            token={livekit.token}
             connect
             audio
             video={videoCapture}

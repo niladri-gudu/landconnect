@@ -1,7 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  Vibration,
+  View,
+} from 'react-native';
 
 import { SOCKET_EVENTS, type CallDto } from '@landconnect/shared';
 
@@ -21,7 +31,9 @@ export function IncomingCallHost() {
   const { user, accessToken } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const [incoming, setIncoming] = useState<CallDto | null>(null);
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
     if (!accessToken || !user) return;
@@ -54,40 +66,54 @@ export function IncomingCallHost() {
   }, [pathname]);
 
   useEffect(() => {
-    if (incoming) {
+    if (incoming && !connecting) {
       Vibration.vibrate([0, 800, 800], true);
     } else {
       Vibration.cancel();
     }
     return () => Vibration.cancel();
-  }, [incoming]);
+  }, [incoming, connecting]);
 
   async function accept() {
-    if (!incoming) return;
+    if (!incoming || connecting) return;
     const call = incoming;
+    // Keep the ring card up with a spinner while the answer request and media
+    // token are in flight; dismissing it first leaves a frozen-looking screen.
+    setConnecting(true);
 
-    // Asking after answering would join a room with a muted microphone and
-    // no way to tell the caller why. Gate acceptance on the permission prompt.
-    const allowed = await ensureCallPermissions(call.kind);
-    if (!allowed) {
-      Alert.alert(
-        'Microphone access needed',
-        'Allow microphone access (and camera access for video calls) in Settings to take this call.',
-      );
-      return;
-    }
-
-    setIncoming(null);
     try {
-      await api.calls.answer(call.id, true);
-    } catch {
-      // The call screen re-reads authoritative state and shows any error.
+      // Asking after answering would join a room with a muted microphone and
+      // no way to tell the caller why. Gate acceptance on the permission prompt.
+      const allowed = await ensureCallPermissions(call.kind);
+      if (!allowed) {
+        Alert.alert(
+          'Microphone access needed',
+          'Allow microphone access (and camera access for video calls) in Settings to take this call.',
+        );
+        return;
+      }
+
+      const result = await api.calls.answer(call.id, true);
+      // Hand the answered call and its LiveKit grant to the call screen so it
+      // does not have to fetch the same data again.
+      queryClient.setQueryData(['call', call.id], result.call);
+      if (result.livekit) {
+        queryClient.setQueryData(['call-media', call.id], result.livekit);
+      }
+      setIncoming(null);
+      router.push(`/call/${call.id}` as Href);
+    } catch (err) {
+      Alert.alert(
+        'Could not answer',
+        err instanceof Error ? err.message : 'Try answering the call again.',
+      );
+    } finally {
+      setConnecting(false);
     }
-    router.push(`/call/${call.id}` as Href);
   }
 
   async function decline() {
-    if (!incoming) return;
+    if (!incoming || connecting) return;
     const call = incoming;
     setIncoming(null);
     try {
@@ -120,8 +146,9 @@ export function IncomingCallHost() {
           <View style={styles.actions}>
             <View style={styles.action}>
               <Pressable
-                style={[styles.circle, styles.decline]}
+                style={[styles.circle, styles.decline, connecting && styles.disabled]}
                 onPress={decline}
+                disabled={connecting}
                 accessibilityRole="button"
                 accessibilityLabel="Decline call"
               >
@@ -131,14 +158,22 @@ export function IncomingCallHost() {
             </View>
             <View style={styles.action}>
               <Pressable
-                style={[styles.circle, styles.accept]}
+                style={[styles.circle, styles.accept, connecting && styles.disabled]}
                 onPress={accept}
+                disabled={connecting}
                 accessibilityRole="button"
-                accessibilityLabel="Accept call"
+                accessibilityLabel={connecting ? 'Connecting call' : 'Accept call'}
+                accessibilityState={{ busy: connecting }}
               >
-                <Ionicons name="call" size={26} color={colors.white} />
+                {connecting ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Ionicons name="call" size={26} color={colors.white} />
+                )}
               </Pressable>
-              <Text style={styles.actionLabel}>Accept</Text>
+              <Text style={styles.actionLabel}>
+                {connecting ? 'Connecting…' : 'Accept'}
+              </Text>
             </View>
           </View>
         </View>
@@ -189,6 +224,7 @@ const styles = StyleSheet.create({
   },
   decline: { backgroundColor: colors.danger },
   accept: { backgroundColor: colors.primary },
+  disabled: { opacity: 0.6 },
   hangup: { transform: [{ rotate: '135deg' }] },
   actionLabel: { ...type.caption, fontSize: 12, color: 'rgba(255,255,255,0.8)' },
 });
