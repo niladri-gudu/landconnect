@@ -65,6 +65,33 @@ callsRouter.post('/', requireAuth, async (req, res) => {
   const other = members.find((member) => member.userId !== me);
   if (!other) throw new AppError(400, 'No other participant to call');
 
+  // A second concurrent call would fight over the same microphone and leave
+  // the first one without a clean end. A RINGING row older than two minutes is
+  // treated as abandoned (the caller screen gives up after 45 seconds).
+  const twoMinutesAgo = new Date(Date.now() - 120_000);
+  const liveCall = await prisma.callSession.findFirst({
+    where: {
+      AND: [
+        {
+          OR: [
+            { status: 'ACTIVE' },
+            { status: 'RINGING', createdAt: { gte: twoMinutesAgo } },
+          ],
+        },
+        {
+          OR: [
+            { initiatorId: { in: [me, other.userId] } },
+            { receiverId: { in: [me, other.userId] } },
+          ],
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  if (liveCall) {
+    throw new AppError(409, 'One of you is already on a call');
+  }
+
   const call = await prisma.callSession.create({
     data: {
       conversationId: input.conversationId,

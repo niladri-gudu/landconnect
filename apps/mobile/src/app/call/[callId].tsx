@@ -294,6 +294,7 @@ export default function CallScreen() {
               title={title}
               role={role}
               avatarUrl={other?.avatarUrl ?? null}
+              startedAt={data.startedAt}
               onEnd={endCall}
               busy={busy}
             />

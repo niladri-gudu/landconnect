@@ -120,11 +120,14 @@ conversationsRouter.get('/:id/messages', requireAuth, async (req, res) => {
   const me = req.user!.id;
   await assertMember(conversationId, me);
 
-  const messages = await prisma.message.findMany({
+  // Newest 200, then restored to chronological order: taking the oldest 200
+  // would make the newest messages disappear from a long conversation.
+  const recent = await prisma.message.findMany({
     where: { conversationId },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
     take: 200,
   });
+  const messages = recent.reverse();
 
   // Fetching history counts as delivery for messages from the other side.
   const pending = messages.filter(

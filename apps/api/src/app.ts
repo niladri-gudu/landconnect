@@ -9,6 +9,7 @@ import { ZodError } from 'zod';
 import { env } from './env';
 import { gzipJson } from './lib/gzip';
 import { prisma } from './lib/prisma';
+import { authLimiter, callLimiter, writeLimiter } from './lib/rate-limit';
 import { AppError } from './lib/security';
 import { authRouter } from './routes/auth';
 import { callsRouter } from './routes/calls';
@@ -20,6 +21,9 @@ export function createApp(io: Server) {
   const app = express();
 
   app.set('io', io);
+  // The deployed API sits behind the host's proxy; without this every client
+  // would share the proxy address and one busy user would exhaust the limits.
+  app.set('trust proxy', 1);
 
   // One line per request so Neon cold starts and slow queries are visible.
   app.use((req, res, next) => {
@@ -62,11 +66,11 @@ export function createApp(io: Server) {
     }
   });
 
-  app.use('/api/auth', authRouter);
+  app.use('/api/auth', authLimiter, authRouter);
   app.use('/api/listings', listingsRouter);
   app.use('/api/uploads', uploadsRouter);
-  app.use('/api/conversations', conversationsRouter);
-  app.use('/api/calls', callsRouter);
+  app.use('/api/conversations', writeLimiter, conversationsRouter);
+  app.use('/api/calls', callLimiter, callsRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not found' });

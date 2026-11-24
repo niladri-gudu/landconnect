@@ -104,6 +104,8 @@ PATCHes the listing.
 **Symptom:** Login, message and call endpoints accept unlimited requests.
 **Impact:** Brute force, spam ringing, message flooding.
 **Fix:** `express-rate-limit` per IP and per user; stricter limits on auth and call creation.
+**Status:** Resolved 2026-11-24 — per-IP limits: auth 40/15 min, conversation writes
+120/min, calls 30/min, with `trust proxy` set for the hosted deployment.
 
 ### KI-21 — Permissive CORS and dev JWT fallback
 **Severity:** P1 if deployed · **Area:** Security
@@ -111,6 +113,8 @@ PATCHes the listing.
 startup warning.
 **Fix:** Set a real secret and allowlist in production; consider refusing to boot with the
 fallback when `NODE_ENV=production`.
+**Status:** Resolved 2026-11-24 — the API refuses to start with the default secret when
+`NODE_ENV=production`, and logs a warning if `CORS_ORIGIN` is still `*`.
 
 ---
 
@@ -121,6 +125,7 @@ fallback when `NODE_ENV=production`.
 **Symptom:** `orderBy createdAt asc` + `take 200` returns the earliest 200 messages, so long
 conversations lose their newest history.
 **Fix:** Fetch `desc` + `take`, then reverse, or implement cursor pagination.
+**Status:** Resolved 2026-11-24 — the newest 200 are fetched and returned oldest-first.
 
 ### KI-11 — No missed-call transition
 **Severity:** P2 · **Area:** Calling
@@ -165,11 +170,15 @@ notification or external link.
 **Severity:** P2 · **Area:** Calling
 **Symptom:** A user can start a second call while already in one; no busy state.
 **Fix:** Reject new calls when an active call exists, or show a "call waiting" flow.
+**Status:** Resolved 2026-11-24 — `POST /api/calls` returns 409 while either participant has an
+ACTIVE call (or a RINGING one under two minutes old); the app surfaces the message.
 
 ### KI-28 — Call duration not displayed or stored
 **Severity:** P2 · **Area:** Calling
 **Symptom:** `startedAt`/`endedAt` exist; the UI shows no duration.
 **Fix:** Compute on end and show a summary in the chat (`type: CALL` message, already modelled).
+**Status:** Partially resolved 2026-11-24 — the active call shows a live timer derived from
+`startedAt` on both sides. A post-call summary message is still out of scope.
 
 ---
 
@@ -218,10 +227,11 @@ real plots).
 | KI-05 | Image upload | P1 | Resolved |
 | KI-06 | Edit listing | P1 | Resolved |
 | KI-07 | Tests/CI | P1 | Open |
-| KI-08 | Rate limiting | P1 | Open |
-| KI-21 | CORS/dev secret | P1 if deployed | Open |
+| KI-08 | Rate limiting | P1 | Resolved |
+| KI-21 | CORS/dev secret | P1 if deployed | Resolved (production guard) |
 | KI-11 | Missed-call transition | P2 | Mitigated (client timer) |
 | KI-23 | Counterpart identity | P2 | Resolved |
-| KI-10, 12–13, 22, 24, 27–28 | Messaging/calls polish | P2 | Open |
+| KI-10, 27 | Messaging/calls robustness | P2 | Resolved |
+| KI-12–13, 22, 24, 28 | Messaging/calls polish | P2 | Open / partial (KI-28 timer shipped) |
 | KI-14–20 | Product polish | P3 | Deferred |
 | KI-25 | Seed images | P3 | Resolved |

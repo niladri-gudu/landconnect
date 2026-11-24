@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalParticipant, useTracks, VideoTrack } from '@livekit/react-native';
 import { Track } from 'livekit-client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { CallKind } from '@landconnect/shared';
@@ -13,11 +13,21 @@ import { Avatar } from './ui';
  * Rendered inside <LiveKitRoom>. Reads the live room state so the mute and
  * camera buttons control actual published tracks, not local UI state.
  */
+function formatDuration(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+  return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
 export function ActiveCall({
   kind,
   title,
   role,
   avatarUrl,
+  startedAt,
   onEnd,
   busy,
 }: {
@@ -25,6 +35,7 @@ export function ActiveCall({
   title: string;
   role: string;
   avatarUrl: string | null;
+  startedAt: string | null;
   onEnd: () => void;
   busy: boolean;
 }) {
@@ -34,6 +45,20 @@ export function ActiveCall({
   const remoteVideo = tracks.find((track) => !track.participant.isLocal);
   const localVideo = tracks.find((track) => track.participant.isLocal);
   const [error, setError] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // The server records startedAt when the call is accepted, so both sides show
+  // the same elapsed time without any additional request.
+  useEffect(() => {
+    if (!startedAt) return;
+    const started = Date.parse(startedAt);
+    if (Number.isNaN(started)) return;
+    const tick = () =>
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - started) / 1000)));
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [startedAt]);
 
   function toggleMic() {
     setError(null);
@@ -96,6 +121,7 @@ export function ActiveCall({
 
       <Text style={styles.status}>
         {kind === 'VIDEO' ? 'Video connected' : 'Audio connected'}
+        {startedAt ? ` · ${formatDuration(elapsedSeconds)}` : ''}
       </Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 

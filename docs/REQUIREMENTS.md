@@ -115,7 +115,7 @@ Status refers to the repository at the baseline date; update this file when item
 | NFR-04 | Token hygiene | Short access TTL, hashed refresh at rest, rotation | ✅ |
 | NFR-05 | Input validation | Zod at every write boundary | ✅ |
 | NFR-06 | Transport security | HTTPS in deployed demo; HTTP only on LAN | ✅ `https://landconnect.hostless.app` |
-| NFR-07 | Rate limiting | Abuse protection on auth/chat | ⬜ |
+| NFR-07 | Rate limiting | Abuse protection on auth/chat | ✅ per-IP limits on auth (40/15 min), conversation writes (120/min), calls (30/min) |
 | NFR-08 | Automated tests | Unit + integration + E2E | ⬜ plan in [TESTING_STRATEGY.md](TESTING_STRATEGY.md) |
 | NFR-09 | Accessibility | Labels/roles on interactive elements; contrast | 🟡 partial |
 | NFR-10 | UI responsiveness | Feed usable on mid-range Android | ✅ by construction (FlatList, pagination) |
