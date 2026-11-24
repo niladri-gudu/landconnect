@@ -208,25 +208,27 @@ export default function CallScreen() {
   }, [accessToken, conversationId, closeCallScreen]);
 
   async function answer(accept: boolean) {
-    if (accept) {
-      const granted = await ensureCallPermissions(call.data?.kind ?? 'AUDIO');
-      setPermission(granted ? 'granted' : 'denied');
-      if (!granted) {
-        setError(
-          'Microphone access is required to take this call. Allow it in Settings, then try again.',
-        );
-        return;
-      }
+    // Declining needs no permission prompt and no round-trip: leave the call
+    // screen immediately and let the server broadcast the rejection.
+    if (!accept) {
+      closeCallScreen();
+      void api.calls.answer(callId, false).catch(() => undefined);
+      return;
+    }
+
+    const granted = await ensureCallPermissions(call.data?.kind ?? 'AUDIO');
+    setPermission(granted ? 'granted' : 'denied');
+    if (!granted) {
+      setError(
+        'Microphone access is required to take this call. Allow it in Settings, then try again.',
+      );
+      return;
     }
 
     setBusy(true);
     setError(null);
     try {
-      const result = await api.calls.answer(callId, accept);
-      if (!accept) {
-        closeCallScreen();
-        return;
-      }
+      const result = await api.calls.answer(callId, true);
       setStatus('ACTIVE');
       setMedia(result.livekit ?? null);
     } catch (err) {
@@ -236,16 +238,11 @@ export default function CallScreen() {
     }
   }
 
-  async function endCall() {
-    setBusy(true);
-    try {
-      await api.calls.end(callId);
-      closeCallScreen();
-    } catch {
-      closeCallScreen();
-    } finally {
-      setBusy(false);
-    }
+  // Leave the screen at once; a slow API response must never look like a
+  // dead button. The server records the end and notifies the other side.
+  function endCall() {
+    closeCallScreen();
+    void api.calls.end(callId).catch(() => undefined);
   }
 
   if (call.isLoading || !call.data) return <Loading />;
@@ -346,7 +343,7 @@ export default function CallScreen() {
                 tone="decline"
                 onPress={endCall}
                 disabled={busy}
-                showLabel={active}
+                showLabel={false}
               />
             </View>
           )}

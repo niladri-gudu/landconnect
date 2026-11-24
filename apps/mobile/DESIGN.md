@@ -108,9 +108,11 @@ pills for small controls only. Minimum touch target 44dp (48dp where layout allo
 - **Calls** — deep-green stage with the participant's real name, role and avatar (from the call
   payload, not a placeholder); tapping a call button immediately paints a full-screen setup stage
   (name, role, avatar, cancel) while the permission prompt and call creation run, then the route is
-  seeded from the created call so it renders “Calling…” without a second spinner; live call controls
-  use real LiveKit track state; microphone/camera permission is requested before joining and denial
-  offers Settings/retry; app-level incoming-call modal with labels, not glyph-only buttons.
+  seeded from the created call so it renders “Calling…” without a second spinner; ending or declining
+  a call leaves the screen immediately while the server records the result and notifies the other
+  side; live call controls use real LiveKit track state; microphone/camera permission is requested
+  before joining and denial offers Settings/retry; app-level incoming-call modal with labels, not
+  glyph-only buttons.
 
 ## Imagery and truth
 
