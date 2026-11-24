@@ -24,6 +24,7 @@ import {
   type MessageReceiptDto,
 } from '@landconnect/shared';
 
+import { StartingCall } from '@/components/starting-call';
 import { Avatar, IconButton, Loading } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -126,6 +127,8 @@ export default function ChatScreen() {
   const [draft, setDraft] = useState('');
   const [startingCall, setStartingCall] = useState<CallKind | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Cancelling mid-flight must not leave a ringing call on the server.
+  const cancelCallRef = useRef(false);
 
   const conversation = useQuery({
     queryKey: ['conversation', conversationId],
@@ -301,26 +304,49 @@ export default function ChatScreen() {
 
   async function startCall(kind: CallKind) {
     if (!conversationId) return;
+    cancelCallRef.current = false;
     setStartingCall(kind);
     setError(null);
+
+    let opened = false;
     try {
       const allowed = await ensureCallPermissions(kind);
       if (!allowed) {
-        setError(
-          kind === 'VIDEO'
-            ? 'Microphone and camera access are required for video calls. Allow them in Settings, then try again.'
-            : 'Microphone access is required for calls. Allow it in Settings, then try again.',
-        );
+        if (!cancelCallRef.current) {
+          setError(
+            kind === 'VIDEO'
+              ? 'Microphone and camera access are required for video calls. Allow them in Settings, then try again.'
+              : 'Microphone access is required for calls. Allow it in Settings, then try again.',
+          );
+        }
+        return;
+      }
+      if (cancelCallRef.current) return;
+
+      const call = await api.calls.create({ conversationId, kind });
+      // Hand the call to the route through the query cache so it renders the
+      // ringing stage immediately with no second loading state.
+      queryClient.setQueryData(['call', call.id], call);
+
+      if (cancelCallRef.current) {
+        void api.calls.end(call.id).catch(() => undefined);
         return;
       }
 
-      const call = await api.calls.create({ conversationId, kind });
+      opened = true;
       router.push(`/call/${call.id}` as Href);
+      // Dismiss the setup overlay now that the call screen is being pushed.
+      setStartingCall(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start call');
     } finally {
-      setStartingCall(null);
+      if (!opened) setStartingCall(null);
     }
+  }
+
+  function cancelStartingCall() {
+    cancelCallRef.current = true;
+    setStartingCall(null);
   }
 
   if (history.isLoading && messages.length === 0) return <Loading />;
@@ -450,6 +476,15 @@ export default function ChatScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <StartingCall
+        visible={startingCall !== null}
+        kind={startingCall ?? 'AUDIO'}
+        name={title}
+        role={other ? roleLabel(other.role) : ''}
+        avatarUrl={other?.avatarUrl ?? null}
+        onCancel={cancelStartingCall}
+      />
     </SafeAreaView>
   );
 }

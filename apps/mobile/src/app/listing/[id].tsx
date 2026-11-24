@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -18,6 +18,7 @@ import type { CallKind } from '@landconnect/shared';
 
 import { ListingImage } from '@/components/listing-image';
 import { ListingMap } from '@/components/listing-map';
+import { StartingCall } from '@/components/starting-call';
 import {
   Avatar,
   Badge,
@@ -44,11 +45,16 @@ export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [imageIndex, setImageIndex] = useState(0);
   const [busy, setBusy] = useState<'chat' | CallKind | null>(null);
+  const [startingCall, setStartingCall] = useState<CallKind | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Tapping cancel while the permission prompt or API is still in flight must
+  // not leave a ringing call behind.
+  const cancelCallRef = useRef(false);
 
   const listing = useQuery({
     queryKey: ['listing', id],
@@ -78,34 +84,75 @@ export default function ListingDetailScreen() {
   async function start(kind?: CallKind) {
     setError(null);
     setBusy(kind ?? 'chat');
+
+    // Put the call screen on top immediately. Permission prompts and API
+    // round-trips can take seconds; the listing must not look frozen.
+    if (kind) {
+      cancelCallRef.current = false;
+      setStartingCall(kind);
+    }
+
+    let opened = false;
     try {
       if (kind) {
+        // Conversation creation does not depend on the permission answer, so
+        // warm it while the system microphone/camera prompt is open.
+        const conversationPromise = api.conversations.create({
+          listingId: item.id,
+          participantId: item.ownerId,
+        });
+        conversationPromise.catch(() => undefined);
+
         const allowed = await ensureCallPermissions(kind);
         if (!allowed) {
-          setError(
-            kind === 'VIDEO'
-              ? 'Microphone and camera access are required for video calls. Allow them in Settings, then try again.'
-              : 'Microphone access is required for calls. Allow it in Settings, then try again.',
-          );
+          if (!cancelCallRef.current) {
+            setError(
+              kind === 'VIDEO'
+                ? 'Microphone and camera access are required for video calls. Allow them in Settings, then try again.'
+                : 'Microphone access is required for calls. Allow it in Settings, then try again.',
+            );
+          }
           return;
         }
+        if (cancelCallRef.current) return;
+
+        const conversation = await conversationPromise;
+        if (cancelCallRef.current) return;
+
+        const call = await api.calls.create({ conversationId: conversation.id, kind });
+        // Seed the route's query so the call screen renders the ringing UI
+        // straight away instead of showing another spinner.
+        queryClient.setQueryData(['call', call.id], call);
+
+        if (cancelCallRef.current) {
+          void api.calls.end(call.id).catch(() => undefined);
+          return;
+        }
+
+        opened = true;
+        router.push(`/call/${call.id}` as Href);
+        // Dismiss the setup overlay now that the call screen is being pushed.
+        setStartingCall(null);
+        return;
       }
 
       const conversation = await api.conversations.create({
         listingId: item.id,
         participantId: item.ownerId,
       });
-      if (!kind) {
-        router.push(`/chat/${conversation.id}` as Href);
-        return;
-      }
-      const call = await api.calls.create({ conversationId: conversation.id, kind });
-      router.push(`/call/${call.id}` as Href);
+      router.push(`/chat/${conversation.id}` as Href);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start conversation');
     } finally {
       setBusy(null);
+      if (!opened) setStartingCall(null);
     }
+  }
+
+  function cancelStartingCall() {
+    cancelCallRef.current = true;
+    setBusy(null);
+    setStartingCall(null);
   }
 
   const pricePerAcre = formatPricePerAcre(item.price, item.areaAcres);
@@ -297,6 +344,15 @@ export default function ListingDetailScreen() {
           </View>
         </View>
       ) : null}
+
+      <StartingCall
+        visible={startingCall !== null}
+        kind={startingCall ?? 'AUDIO'}
+        name={item.owner?.name ?? 'LandConnect member'}
+        role={item.owner ? roleLabel(item.owner.role) : ''}
+        avatarUrl={item.owner?.avatarUrl ?? null}
+        onCancel={cancelStartingCall}
+      />
     </View>
   );
 }
