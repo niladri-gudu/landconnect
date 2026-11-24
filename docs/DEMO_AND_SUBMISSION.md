@@ -11,7 +11,7 @@
 | # | Deliverable | Content | Status |
 |---|---|---|---|
 | 1 | GitHub repository | Source, README, setup instructions, docs, no secrets | ✅ pushed 2026-11-23 |
-| 2 | Working demo | Preview APK (Android) and/or hosted API + Expo link | ⬜ |
+| 2 | Working demo | Preview APK (Android) + hosted API at <https://landconnect.hostless.app> | ✅ |
 | 3 | Demonstration video | 4–6 min, calling highlighted | ⬜ |
 | 4 | Technical documentation | This doc set + EXPLANATION.md | ✅ |
 | 5 | AI tools usage summary | Section in AI_DEVELOPMENT_RULES.md / email | ✅ draft |
@@ -50,7 +50,9 @@ Repo hygiene checklist:
 
 ### 3.1 API
 
-Recommended: Render or Fly.io with Neon.
+**Deployed at <https://landconnect.hostless.app>** (hostless.cloud, Express/Nixpacks + WebSocket,
+single instance) backed by Neon `ap-southeast-1`. The steps below reproduce it elsewhere
+(Render, Fly.io, Railway) with the same env contract.
 
 1. Create a Neon database (keep pooled + direct URLs).
 2. Deploy `apps/api` (build: install, `prisma generate`, `prisma db push`; start: `tsx src/index.ts`

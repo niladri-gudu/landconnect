@@ -1,6 +1,6 @@
 # Requirements and Traceability
 
-**Baseline:** 2026-11-21
+**Baseline:** 2026-11-24
 **Legend:** ✅ implemented · 🟡 partial · ⬜ not started
 Status refers to the repository at the baseline date; update this file when items land.
 
@@ -40,9 +40,9 @@ Status refers to the repository at the baseline date; update this file when item
 | FR-LIST-02 | Search/filter | Keyword, city, min/max price accepted | ✅ (API); 🟡 (UI exposes keyword only) | `listingQuerySchema`, feed search |
 | FR-LIST-03 | Show images, description, price, location | Detail screen shows all fields | ✅ | `listing/[id].tsx` |
 | FR-LIST-04 | Create listing | Valid payload → 201 and visible in feed | ✅ | `listing/create.tsx` |
-| FR-LIST-05 | Upload property images | Pick from gallery and upload | 🟡 URL paste only; picker installed but unused | `listing/create.tsx` |
+| FR-LIST-05 | Upload property images | Pick from gallery and upload | ✅ picker → `POST /api/uploads` → Neon Object Storage | `listing/create.tsx` |
 | FR-LIST-06 | Geotag listing | GPS or manual coordinates captured | ✅ | `expo-location` in create screen |
-| FR-LIST-07 | Edit listing | Owner edits fields from the app | 🟡 API PATCH exists; no edit screen | `routes/listings.ts`, `api.ts` |
+| FR-LIST-07 | Edit listing | Owner edits fields from the app | ✅ edit mode of the same form; prefills, keeps/removes existing photos, PATCHes | `listing/create.tsx`, `(tabs)/listings.tsx`, `PATCH /api/listings/:id` |
 | FR-LIST-08 | Delete/archive listing | Owner removes listing; delete cascades safely | ✅ delete; 🟡 status change via API only | `(tabs)/listings.tsx`, `routes/listings.ts` |
 | FR-LIST-09 | Ownership checks | Non-owner cannot mutate | ✅ | `findOwnedListing()` |
 | FR-LIST-10 | Validation | Bad price/coords/empty fields rejected with useful errors | ✅ | Zod schemas + client pre-validation |
@@ -51,8 +51,8 @@ Status refers to the repository at the baseline date; update this file when item
 
 | ID | Requirement | Acceptance criteria | Status | Evidence |
 |---|---|---|---|---|
-| FR-MAP-01 | Display listing location on a map | Marker visible in-app | 🟡 OpenStreetMap deep-link card; no embedded map | `map-preview.tsx` |
-| FR-MAP-02 | Location selection when creating | User picks point on a map | 🟡 GPS/manual lat-lng only | `listing/create.tsx` |
+| FR-MAP-01 | Display listing location on a map | Marker visible in-app | ✅ embedded MapLibre + OpenFreeMap map; schematic fallback when the native module is absent | `listing-map.tsx` |
+| FR-MAP-02 | Location selection when creating | User picks point on a map | ✅ tap-to-place picker plus GPS and manual coordinates | `listing-map.tsx`, `listing/create.tsx` |
 | FR-MAP-03 | Open location externally | Tap opens exact coordinates | ✅ | `map-preview.tsx` |
 | FR-MAP-04 | Free tile source | No paid API key required | ✅ plan (OpenFreeMap/OSM) | [MAPS_AND_GEOLOCATION.md](MAPS_AND_GEOLOCATION.md) |
 
@@ -65,7 +65,7 @@ Status refers to the repository at the baseline date; update this file when item
 | FR-MSG-03 | Conversation list | Shows counterpart, listing context, last message | ✅ | `(tabs)/messages.tsx` |
 | FR-MSG-04 | Meeting room | Persistent room for participants | 🟡 conversation room over Socket.IO; no scheduling | `realtime.ts` |
 | FR-MSG-05 | Typing indicator | Ephemeral typing events | 🟡 server relays; client does not emit/display yet | `realtime.ts` |
-| FR-MSG-06 | Read receipts / attachments | — | ⬜ out of scope | — |
+| FR-MSG-06 | Read receipts / attachments | Delivered/read state per message | ✅ receipts and unread counts; 🟡 attachments (text only) | `chat/[conversationId].tsx` |
 
 ### FR-CALL — Audio and video calling (key requirement)
 
@@ -73,13 +73,13 @@ Status refers to the repository at the baseline date; update this file when item
 |---|---|---|---|---|
 | FR-CALL-01 | Initiate audio call | Creates session and rings receiver | ✅ | `POST /api/calls`, `call/[callId].tsx` |
 | FR-CALL-02 | Initiate video call | Same with `kind: VIDEO` | ✅ | same |
-| FR-CALL-03 | Receive incoming call | Receiver notified in-app | 🟡 event emitted; no global incoming UI | KI-02 |
-| FR-CALL-04 | Accept | Both sides transition to ACTIVE | ✅ (state); 🟡 media not attached | `POST /calls/:id/answer` |
+| FR-CALL-03 | Receive incoming call | Receiver notified in-app | ✅ app-level ring overlay on any screen | `components/incoming-call.tsx` |
+| FR-CALL-04 | Accept | Both sides transition to ACTIVE | ✅ state + LiveKit grant; media joined | `POST /calls/:id/answer` |
 | FR-CALL-05 | Reject | Call → REJECTED; caller informed | ✅ | `call:rejected` |
-| FR-CALL-06 | End | Either party ends; both informed | ✅ | `POST /calls/:id/end` |
+| FR-CALL-06 | End | Either party ends; both informed | ✅ screen closes immediately; server records and notifies | `POST /calls/:id/end` |
 | FR-CALL-07 | No phone numbers | No numbers in call surfaces | ✅ | DTOs exclude phone |
-| FR-CALL-08 | Real audio media | Two devices hear each other | ⬜ **P0** | [AUDIO_VIDEO_CALLING.md](AUDIO_VIDEO_CALLING.md) |
-| FR-CALL-09 | Real video media | Two devices see each other | ⬜ **P0** | same |
+| FR-CALL-08 | Real audio media | Two devices hear each other | ✅ verified 2026-11-23 (phone ↔ emulator, RTP both ways) | [AUDIO_VIDEO_CALLING.md](AUDIO_VIDEO_CALLING.md) |
+| FR-CALL-09 | Real video media | Two devices see each other | 🟡 wired (local/remote tracks, camera toggle); final two-device check pending | same |
 | FR-CALL-10 | Missed call handling | Unanswered call becomes MISSED | ⬜ (enum exists, no timeout job) | KI-11 |
 | FR-CALL-11 | Background/terminated notification | Push or call kit | ⬜ out of scope for prototype; demo in foreground | KI-12 |
 
@@ -97,11 +97,11 @@ Status refers to the repository at the baseline date; update this file when item
 
 | ID | Requirement | Acceptance criteria | Status |
 |---|---|---|---|
-| FR-DOC-01 | GitHub repo + setup instructions | Public repo, reproducible quick start | 🟡 local repo exists, no commit/remote yet |
-| FR-DOC-02 | Working demo/APK | Installable preview APK or hosted demo | ⬜ |
-| FR-DOC-03 | Demo video | 3–6 minutes, calling highlighted | ⬜ |
+| FR-DOC-01 | GitHub repo + setup instructions | Public repo, reproducible quick start | ✅ <https://github.com/niladri-gudu/landconnect> |
+| FR-DOC-02 | Working demo/APK | Installable preview APK or hosted demo | ✅ hosted API + EAS preview APK |
+| FR-DOC-03 | Demo video | 4–6 minutes, calling highlighted | ⬜ remaining deliverable |
 | FR-DOC-04 | Technical documentation | Stack, architecture, decisions, challenges | ✅ this doc set |
-| FR-DOC-05 | AI usage summary | Tools and contribution described | ✅ draft in `EXPLANATION.md`; consolidate in [AI_DEVELOPMENT_RULES.md](AI_DEVELOPMENT_RULES.md) |
+| FR-DOC-05 | AI usage summary | Tools and contribution described | ✅ [AI_DEVELOPMENT_RULES.md](AI_DEVELOPMENT_RULES.md) + `EXPLANATION.md` |
 
 ---
 
@@ -114,7 +114,7 @@ Status refers to the repository at the baseline date; update this file when item
 | NFR-03 | Secure passwords | bcrypt cost 10; never logged | ✅ |
 | NFR-04 | Token hygiene | Short access TTL, hashed refresh at rest, rotation | ✅ |
 | NFR-05 | Input validation | Zod at every write boundary | ✅ |
-| NFR-06 | Transport security | HTTPS in deployed demo; HTTP only on LAN | 🟡 deployment pending |
+| NFR-06 | Transport security | HTTPS in deployed demo; HTTP only on LAN | ✅ `https://landconnect.hostless.app` |
 | NFR-07 | Rate limiting | Abuse protection on auth/chat | ⬜ |
 | NFR-08 | Automated tests | Unit + integration + E2E | ⬜ plan in [TESTING_STRATEGY.md](TESTING_STRATEGY.md) |
 | NFR-09 | Accessibility | Labels/roles on interactive elements; contrast | 🟡 partial |

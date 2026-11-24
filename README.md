@@ -5,13 +5,14 @@ plots, chat privately, and start audio/video calls **without exchanging phone nu
 
 Built as the LandConnect technical assignment (issued 2026-11-20, due **2026-11-25 23:59 IST**).
 
-> **Status as of 2026-11-23:** auth, role-gated listings, conversations, realtime messaging,
-> call signalling, LiveKit media wiring and the global incoming-call overlay are implemented.
-> An embedded **MapLibre + OpenFreeMap** map (no API key) is verified on the Android dev build,
-> and listing photos upload through **Neon Object Storage** (`POST /api/uploads`). LiveKit
-> **audio media is verified between a physical phone and the emulator** (ICE/DTLS connected,
-> audio RTP both ways over cellular); the video-call check, preview APK and demo video are still
-> pending. See [TASK_TRACKER.md](docs/TASK_TRACKER.md).
+> **Status as of 2026-11-24:** every brief flow is implemented — auth with three roles,
+> role-gated listings (create, edit and manage), community feed with search, embedded MapLibre
+> maps with GPS/tap-to-place geotagging, realtime chat, and in-app audio/video calling with
+> accept, reject and end. The API is deployed at <https://landconnect.hostless.app>
+> (`/health`), and an installable preview APK is published from the latest EAS preview build.
+> LiveKit **audio** is verified between a physical phone and the emulator; **video** is wired and
+> awaiting the final two-device check. The demonstration video is the remaining deliverable.
+> See [TASK_TRACKER.md](docs/TASK_TRACKER.md).
 
 ---
 
@@ -57,16 +58,17 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 | Roles: Buyer / Seller / Broker | ✅ | Prisma `Role`, `requireRole()`, register role chips |
 | Role-based access + permissions | ✅ | API guards; UI hides seller actions |
 | Community listing feed | ✅ | `(tabs)/index.tsx`, `GET /api/listings` |
-| Listing create + manage | 🟡 create/delete UI, API supports edit; no edit screen | `(tabs)/listings.tsx`, `listing/create.tsx` |
+| Listing create + edit + manage | ✅ create, edit (incl. photo changes) and delete from My Listings/detail | `listing/create.tsx`, `(tabs)/listings.tsx`, `PATCH /api/listings/:id` |
 | Image upload | ✅ photo picker → Neon Object Storage (4 images, ≤8 MB) | `listing/create.tsx`, `POST /api/uploads` |
-| Maps + geotagging | 🟡 embedded MapLibre + OpenFreeMap, tap-to-place picker; verify on native build | `listing-map.tsx`, location section in `listing/create.tsx` |
+| Maps + geotagging | ✅ embedded MapLibre + OpenFreeMap, tap-to-place picker, GPS capture | `listing-map.tsx`, location section in `listing/create.tsx` |
 | In-app messaging | ✅ | `(tabs)/messages.tsx`, `chat/[conversationId].tsx` |
-| Meeting rooms | 🟡 conversations act as persistent rooms | Socket.IO conversation rooms |
-| **In-app audio/video calling** | 🟡 LiveKit RN media + track-backed controls; **device build + `LIVEKIT_*` pending** | `call/[callId].tsx`, `components/active-call.tsx`, `/api/calls` |
+| Meeting rooms | 🟡 conversations act as persistent rooms for chat and calls | Socket.IO conversation rooms |
+| **In-app audio/video calling** | ✅ LiveKit RN media + track-backed controls; audio verified, video wired and awaiting the final device check | `call/[callId].tsx`, `components/active-call.tsx`, `/api/calls` |
 | Accept / reject / end calls | ✅ | `/api/calls/:id/answer`, `/api/calls/:id/end` |
 | Incoming call while outside chat | ✅ | `components/incoming-call.tsx` app-level ring overlay |
 | No phone number exchange | ✅ | owner/conversation/call DTOs never include phone |
-| Demo build + video | ⬜ | `DEMO_AND_SUBMISSION.md` |
+| Demo build | ✅ hosted API + preview APK | [DEMO_AND_SUBMISSION.md](docs/DEMO_AND_SUBMISSION.md) |
+| Demonstration video | ⬜ | [DEMO_AND_SUBMISSION.md](docs/DEMO_AND_SUBMISSION.md) |
 
 ---
 
@@ -159,6 +161,16 @@ Seed script creates (password `password123` for all):
 | Seller | seller@landconnect.dev |
 | Broker | broker@landconnect.dev |
 
+### Hosted demo
+
+| What | Where |
+|---|---|
+| API (HTTPS) | <https://landconnect.hostless.app> · health check at `/health` |
+| Android preview APK | <https://expo.dev/accounts/niladri_expo/projects/landconnect/builds> (latest preview build) |
+
+The APK talks to the hosted API and LiveKit Cloud, so it works on mobile data with no local
+setup. Calling needs the installed build — Expo Go cannot load the native WebRTC module.
+
 ---
 
 ## Auth in one paragraph
@@ -206,13 +218,15 @@ closes the session. Requires a development build — Expo Go cannot load native 
 
 The authoritative checklist lives in [TASK_TRACKER.md](docs/TASK_TRACKER.md). Top items:
 
-- [x] Attach real audio/video media in code (LiveKit RN — verify on a development build)
+- [x] Attach real audio/video media in code (LiveKit RN — audio verified on two devices)
 - [x] Global incoming-call listener + ring screen
-- [x] Camera/microphone permissions in app config (dev build still required)
-- [x] Embedded MapLibre map with location picker (verified on the Android dev build)
+- [x] Camera/microphone permissions in app config
+- [x] Embedded MapLibre map with location picker
 - [x] Image upload via photo picker + Neon Object Storage
-- [ ] Deploy API and produce a preview APK
+- [x] Listing create, edit and delete in the app
+- [x] Deploy the API and produce a preview APK
+- [ ] Final two-device video-call check
 - [ ] Record the demo video (calling flow first)
-- [ ] Finalise docs and AI usage summary, push the repository
+- [ ] Finalise docs and send the submission email
 
 Submission mechanics: [DEMO_AND_SUBMISSION.md](docs/DEMO_AND_SUBMISSION.md).

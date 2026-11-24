@@ -20,7 +20,8 @@ creates an `RTCPeerConnection` or joins a LiveKit room. No audio or video flows.
 tracks. See [AUDIO_VIDEO_CALLING.md](AUDIO_VIDEO_CALLING.md) §4–5.
 **Status:** Media verified 2026-11-23 between a Nothing Phone 3a and the Android emulator:
 LiveKit Cloud room joined, ICE/DTLS connected, audio RTP flowing both ways over the phone's
-cellular network (~60 ms RTT). Video-call verification still pending.
+cellular network (~60 ms RTT). Video is implemented (local/remote `VideoTrack`, camera toggle,
+permission gating); the final two-device video check is the only remaining verification.
 
 ### KI-02 — No incoming-call UI outside the call screen
 **Severity:** P0 · **Area:** Calling
@@ -49,7 +50,8 @@ of joining a muted room.
 **Symptom:** No preview APK, no hosted API, no public git remote.
 **Impact:** Evaluators cannot run the app.
 **Fix:** Deploy API (Render/Fly/Railway), build a preview APK with EAS, push a public repo.
-**Status:** Open.
+**Status:** Resolved 2026-11-24 — API live at <https://landconnect.hostless.app>, repository
+public at <https://github.com/niladri-gudu/landconnect>, preview APK published from EAS.
 
 ---
 
@@ -87,6 +89,9 @@ from the emulator (`POST /api/uploads` 201) and with direct API checks (415/403/
 **Severity:** P1 · **Area:** Listings
 **Symptom:** `PATCH /api/listings/:id` works, but there is no UI to call it.
 **Fix:** Reuse the create form with initial values and a PATCH submit.
+**Status:** Resolved 2026-11-24 — My Listings and the owner card on listing detail open the form
+with `?id=`, which prefills every field, keeps or removes saved photos, uploads new ones, and
+PATCHes the listing.
 
 ### KI-07 — No automated tests or CI
 **Severity:** P1 · **Area:** Quality
@@ -195,7 +200,8 @@ Only `console` logs for startup and unhandled errors. Add request IDs, redaction
 before production.
 
 ### KI-25 — Seed listings have no images
-Feed cards use the first-letter placeholder. Add real image URLs to the seed for a better demo.
+**Status:** Resolved — seed listings carry curated Unsplash photography (illustrative, not the
+real plots).
 
 ---
 
@@ -203,18 +209,19 @@ Feed cards use the first-letter placeholder. Add real image URLs to the seed for
 
 | ID | Area | Severity | Status |
 |---|---|---|---|
-| KI-01 | Calling media | P0 | Audio verified; video pending |
+| KI-01 | Calling media | P0 | Audio verified; video implemented, final check pending |
 | KI-02 | Incoming call UI | P0 | Resolved |
 | KI-03 | Permissions | P0 | Resolved |
-| KI-09 | Build/deploy | P0 | Open |
+| KI-09 | Build/deploy | P0 | Resolved (hosted API + APK + repo) |
 | KI-26 | Socket rejoin | P1 | Resolved |
 | KI-04 | Embedded map | P1 | Resolved |
 | KI-05 | Image upload | P1 | Resolved |
-| KI-06 | Edit listing | P1 | Open |
+| KI-06 | Edit listing | P1 | Resolved |
 | KI-07 | Tests/CI | P1 | Open |
 | KI-08 | Rate limiting | P1 | Open |
 | KI-21 | CORS/dev secret | P1 if deployed | Open |
 | KI-11 | Missed-call transition | P2 | Mitigated (client timer) |
 | KI-23 | Counterpart identity | P2 | Resolved |
 | KI-10, 12–13, 22, 24, 27–28 | Messaging/calls polish | P2 | Open |
-| KI-14–20, 25 | Product polish | P3 | Deferred |
+| KI-14–20 | Product polish | P3 | Deferred |
+| KI-25 | Seed images | P3 | Resolved |
