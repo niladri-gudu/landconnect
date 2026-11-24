@@ -62,8 +62,10 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 | Image upload | ✅ photo picker → Neon Object Storage (4 images, ≤8 MB) | `listing/create.tsx`, `POST /api/uploads` |
 | Maps + geotagging | ✅ embedded MapLibre + OpenFreeMap, tap-to-place picker, GPS capture | `listing-map.tsx`, location section in `listing/create.tsx` |
 | In-app messaging | ✅ | `(tabs)/messages.tsx`, `chat/[conversationId].tsx` |
+| Message notifications | ✅ in-app banner + Messages tab badge while foreground; missed messages/rings recovered on reconnect | `components/message-banner.tsx` |
+| Call history | ✅ call entries in chat: missed, declined, completed with duration | `routes/calls.ts`, `chat/[conversationId].tsx` |
 | Meeting rooms | 🟡 conversations act as persistent rooms for chat and calls | Socket.IO conversation rooms |
-| **In-app audio/video calling** | ✅ LiveKit RN media + track-backed controls; audio verified, video wired and awaiting the final device check | `call/[callId].tsx`, `components/active-call.tsx`, `/api/calls` |
+| **In-app audio/video calling** | ✅ LiveKit RN media + track-backed controls; audio verified, video wired and awaiting the final device check; pending rings replay on reconnect | `call/[callId].tsx`, `components/active-call.tsx`, `/api/calls` |
 | Accept / reject / end calls | ✅ | `/api/calls/:id/answer`, `/api/calls/:id/end` |
 | Incoming call while outside chat | ✅ | `components/incoming-call.tsx` app-level ring overlay |
 | No phone number exchange | ✅ | owner/conversation/call DTOs never include phone |

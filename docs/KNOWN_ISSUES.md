@@ -140,6 +140,10 @@ exact enum state and is out of prototype scope.
 **Symptom:** Incoming calls and messages require the app to be open with a live socket.
 **Impact:** Acceptable for a foreground demo; documented as a limitation.
 **Fix:** FCM/APNs + call kit/VoIP push (out of prototype scope).
+**Status:** Partially mitigated 2026-11-24 — while the app is foregrounded there is now an
+in-app message banner and an unread tab badge; a ring or message that occurred during a socket
+gap is recovered on reconnect/foreground (pending-ring replay + history refetch). True background
+delivery still needs push and remains out of scope.
 
 ### KI-13 — Refresh-token rows are never pruned
 **Severity:** P2 · **Area:** Backend
@@ -177,8 +181,9 @@ ACTIVE call (or a RINGING one under two minutes old); the app surfaces the messa
 **Severity:** P2 · **Area:** Calling
 **Symptom:** `startedAt`/`endedAt` exist; the UI shows no duration.
 **Fix:** Compute on end and show a summary in the chat (`type: CALL` message, already modelled).
-**Status:** Partially resolved 2026-11-24 — the active call shows a live timer derived from
-`startedAt` on both sides. A post-call summary message is still out of scope.
+**Status:** Resolved 2026-11-24 — the active call shows a live timer, and each call now writes a
+`CALL` message into the conversation ("Audio call · 2:14", "Missed audio call", "Declined video
+call"), so history lives in chat without a separate screen.
 
 ---
 
@@ -232,6 +237,7 @@ real plots).
 | KI-11 | Missed-call transition | P2 | Mitigated (client timer) |
 | KI-23 | Counterpart identity | P2 | Resolved |
 | KI-10, 27 | Messaging/calls robustness | P2 | Resolved |
-| KI-12–13, 22, 24, 28 | Messaging/calls polish | P2 | Open / partial (KI-28 timer shipped) |
+| KI-28 | Call history | P2 | Resolved |
+| KI-12–13, 22, 24 | Messaging/calls polish | P2 | Open (KI-12 partially mitigated) |
 | KI-14–20 | Product polish | P3 | Deferred |
 | KI-25 | Seed images | P3 | Resolved |
