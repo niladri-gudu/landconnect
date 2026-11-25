@@ -5,15 +5,30 @@ plots, chat privately, and start audio/video calls **without exchanging phone nu
 
 Built as the LandConnect technical assignment (issued 2026-11-20, due **2026-11-25 23:59 IST**).
 
-> **Status as of 2026-11-24:** every brief flow is implemented — auth with three roles,
+> **Status as of 2026-11-25:** every brief flow is implemented — auth with three roles,
 > role-gated listings (create, edit and manage), community feed with search, embedded MapLibre
 > maps with GPS/tap-to-place geotagging, realtime chat, and in-app audio/video calling with
 > accept, reject and end. The API is deployed at <https://landconnect.hostless.app>
 > (`/health`), and an installable preview APK is published from the latest EAS preview build.
-> LiveKit **audio and video** are verified between a physical phone and the emulator (media both
-> ways, call timer and history entries). Missing rings and messages are recovered on reconnect or
-> app foreground. The demonstration video is the remaining deliverable.
-> See [TASK_TRACKER.md](docs/TASK_TRACKER.md).
+> LiveKit **audio and video** are verified between a physical phone and the emulator, and video
+> was also verified between two physical devices. Missing rings and messages are recovered on
+> reconnect or app foreground. See [TASK_TRACKER.md](docs/TASK_TRACKER.md).
+
+## Submission links
+
+| Item | Link |
+|---|---|
+| GitHub repository | <https://github.com/niladri-gudu/landconnect> |
+| Android APK (preview build) | <https://expo.dev/artifacts/eas/hNTK89HEZXizgQjhwMUUZrAgHs2OEo3A0mWpPRTH6cE.apk> |
+| Expo build page | <https://expo.dev/accounts/niladri_expo/projects/landconnect/builds/be89632d-bcdf-4c37-9804-d494517e5112> |
+| Demonstration video (calling first) | <https://youtu.be/FUXDR2tnuzk> |
+| Hosted API | <https://landconnect.hostless.app> (`/health`) |
+| Video-call evidence, two devices | [screenshot](docs/screenshots/video-call-devices.jpeg) |
+| Call-history evidence | [screenshot](docs/screenshots/call-history.png) |
+
+Demo accounts: `buyer@landconnect.dev`, `seller@landconnect.dev`, `broker@landconnect.dev` —
+password `password123` for all. Install the APK; Expo Go cannot load native WebRTC. A one-page
+copy of this sheet for evaluators is in [SUBMISSION.md](SUBMISSION.md).
 
 ---
 
@@ -71,7 +86,7 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 | Incoming call while outside chat | ✅ | `components/incoming-call.tsx` app-level ring overlay |
 | No phone number exchange | ✅ | owner/conversation/call DTOs never include phone |
 | Demo build | ✅ hosted API + preview APK | [DEMO_AND_SUBMISSION.md](docs/DEMO_AND_SUBMISSION.md) |
-| Demonstration video | ⬜ | [DEMO_AND_SUBMISSION.md](docs/DEMO_AND_SUBMISSION.md) |
+| Demonstration video | ✅ <https://youtu.be/FUXDR2tnuzk> | [DEMO_AND_SUBMISSION.md](docs/DEMO_AND_SUBMISSION.md) |
 
 ---
 
@@ -228,8 +243,9 @@ The authoritative checklist lives in [TASK_TRACKER.md](docs/TASK_TRACKER.md). To
 - [x] Image upload via photo picker + Neon Object Storage
 - [x] Listing create, edit and delete in the app
 - [x] Deploy the API and produce a preview APK
-- [ ] Final two-device video-call check
-- [ ] Record the demo video (calling flow first)
-- [ ] Finalise docs and send the submission email
+- [x] Final two-device video-call check
+- [x] Record the demo video (calling flow first)
+- [x] Finalise docs and AI usage summary
+- [ ] Send the submission email
 
 Submission mechanics: [DEMO_AND_SUBMISSION.md](docs/DEMO_AND_SUBMISSION.md).

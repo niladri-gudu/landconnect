@@ -21,7 +21,8 @@ tracks. See [AUDIO_VIDEO_CALLING.md](AUDIO_VIDEO_CALLING.md) §4–5.
 **Status:** Resolved 2026-11-25 — audio verified 2026-11-23 (phone ↔ emulator, RTP both ways over
 cellular), and a full video call was verified on the final build: remote video from the phone
 rendered on the emulator, the emulator test pattern rendered on the phone, local preview and
-camera toggle worked, and the call logged `Video call · 4:20` in chat.
+camera toggle worked, and the call logged `Video call · 4:20` in chat. Video was also verified
+between two physical devices; see `docs/screenshots/video-call-devices.jpeg`.
 
 ### KI-02 — No incoming-call UI outside the call screen
 **Severity:** P0 · **Area:** Calling

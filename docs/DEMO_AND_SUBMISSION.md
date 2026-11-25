@@ -12,7 +12,7 @@
 |---|---|---|---|
 | 1 | GitHub repository | Source, README, setup instructions, docs, no secrets | ✅ pushed 2026-11-23 |
 | 2 | Working demo | Preview APK (Android) + hosted API at <https://landconnect.hostless.app> | ✅ |
-| 3 | Demonstration video | 4–6 min, calling highlighted | ⬜ |
+| 3 | Demonstration video | Calling highlighted | ✅ <https://youtu.be/FUXDR2tnuzk> |
 | 4 | Technical documentation | This doc set + EXPLANATION.md | ✅ |
 | 5 | AI tools usage summary | Section in AI_DEVELOPMENT_RULES.md / email | ✅ draft |
 | 6 | Submission email | All links, test accounts, notes | ⬜ |
@@ -113,6 +113,9 @@ Include these in the README and the submission email.
 ## 4. Demonstration video
 
 ### 4.1 Format
+
+**Recorded walkthrough:** <https://youtu.be/FUXDR2tnuzk>. Supplementary video-call evidence from
+two physical devices: [video-call-devices.jpeg](screenshots/video-call-devices.jpeg).
 
 - 4–6 minutes, 1080p, landscape or portrait consistently.
 - Screen recording + voice-over; optionally picture-in-picture of two phones.
